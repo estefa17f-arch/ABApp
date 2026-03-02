@@ -301,42 +301,7 @@ body{background:linear-gradient(135deg,#d8eaf8,#e8e0f8,#d8f5ea);}
 </head>
 <body>
 
-<!-- LOGIN SCREEN -->
-
-<div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-  height:100vh;width:100%;background:linear-gradient(160deg,#e4f2ff 0%,#ede8ff 45%,#e4fff5 100%);
-  font-family:'Nunito',sans-serif;padding:24px;position:fixed;top:0;left:0;z-index:999;">
-  <div style="text-align:center;margin-bottom:48px;">
-    <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:600;
-      background:linear-gradient(135deg,#3a8fc9,#8860c8);-webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;margin-bottom:8px;">A<em>&</em>B Group</div>
-    <div style="font-size:13px;color:#6b7a8d;font-weight:600;">Tu app de productividad</div>
-  </div>
-  <div style="background:rgba(255,255,255,.88);backdrop-filter:blur(18px);border-radius:28px;
-    padding:32px 28px;width:100%;max-width:360px;border:1px solid rgba(255,255,255,.95);
-    box-shadow:0 12px 48px rgba(160,185,210,.35);text-align:center;">
-    <div style="font-size:40px;margin-bottom:16px;">🔐</div>
-    <div style="font-size:18px;font-weight:800;margin-bottom:8px;">Bienvenido</div>
-    <div style="font-size:12px;color:#6b7a8d;font-weight:600;margin-bottom:28px;line-height:1.6;">
-      Inicia sesión para acceder a tus datos sincronizados en todos tus dispositivos
-    </div>
-    <button id="login-btn" onclick="doGoogleLogin()"
-      style="width:100%;padding:14px 20px;border-radius:16px;border:none;cursor:pointer;
-      background:linear-gradient(135deg,#3a8fc9,#8860c8);color:#fff;font-size:14px;
-      font-weight:800;font-family:'Nunito',sans-serif;display:flex;align-items:center;
-      justify-content:center;gap:10px;box-shadow:0 6px 20px rgba(58,143,201,.35);">
-      <svg width="20" height="20" viewBox="0 0 48 48">
-        <path fill="#FFF" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
-      </svg>
-      Entrar con Google
-    </button>
-    <div style="margin-top:20px;font-size:10px;color:#a0aec0;font-weight:600;line-height:1.6;">
-      🔒 Solo tú puedes ver tus datos.<br>Protegido con tu cuenta Google.
-    </div>
-  </div>
-</div>
-
-<div id="app" style="display:none;">
+<div id="app">
   <!-- HOME -->
   <div class="scr on" id="s-home">
     <div class="hdr">
@@ -510,14 +475,12 @@ body{background:linear-gradient(135deg,#d8eaf8,#e8e0f8,#d8f5ea);}
       <div class="sitem"><div class="sico blue-bg" style="color:#1a4a78;"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H7v-5h5v5zm5 0h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4H7V7h10v2z"/></svg></div><span class="slb">Insights Semanales</span><div class="tgl on" onclick="this.classList.toggle('on')"><div class="tknob"></div></div></div>
       <div class="sep"></div>
       <div class="sitem" style="opacity:.65;" onclick="confirmClear()"><div class="sico pink-bg" style="color:#7a1848;"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></div><span class="slb" style="color:#c03030;">Borrar todos los datos</span><span class="sarr">›</span></div>
-      <div style="text-align:center;padding:18px 0 6px;font-size:10px;color:var(--tll);font-weight:700;">A&B Group v4.0 · Sincronizado con Firebase ♡</div>
-      <div style="padding:0 20px 20px;">
-        <button onclick="doLogout()" style="width:100%;padding:11px;border-radius:14px;border:none;cursor:pointer;
-          background:rgba(200,50,50,.08);color:#c03030;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;">
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
+      <div style="text-align:center;padding:18px 0 6px;font-size:10px;color:var(--tll);font-weight:700;">A&B Group v4.0 · Datos guardados localmente ♡</div>
+
+```
+</div>
+```
+
   </div>
 
   <!-- NOTIFICATION PANEL -->
@@ -557,105 +520,21 @@ body{background:linear-gradient(135deg,#d8eaf8,#e8e0f8,#d8f5ea);}
 
   <div id="toast"><div style="font-size:20px;" id="t-ico">ℹ️</div><div style="flex:1;font-size:12px;font-weight:800;" id="t-msg"></div><button id="tclose" onclick="hideToast()">×</button></div>
 <script>
-// ═══ FIREBASE — carga dinámica garantizada ═══
-function loadScript(src){
-  return new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src=src;s.onload=res;
-    s.onerror=()=>rej(new Error('No se pudo cargar Firebase. Verifica tu conexión.'));
-    document.head.appendChild(s);
-  });
-}
-
-let _db,_auth,_col;
-let currentUID=null;
-
-async function initFirebase(){
-await loadScript(‘firebase-app.js’);
-await loadScript(‘firebase-auth.js’);
-await loadScript(‘firebase-firestore.js’);
-
-firebase.initializeApp({
-apiKey:“AIzaSyA4Zaiw8U5Ld8G4gCxCK4kEMfXmHgdFb_E”,
-authDomain:“abgroup-db7ea.firebaseapp.com”,
-projectId:“abgroup-db7ea”,
-storageBucket:“abgroup-db7ea.firebasestorage.app”,
-messagingSenderId:“266741962255”,
-appId:“1:266741962255:web:1cee2888e7e5d7e2c9357a”
-});
-
-_db=firebase.firestore();
-_auth=firebase.auth();
-_col=(s)=>_db.collection(‘users’).doc(currentUID).collection(s);
-
-// ── DATABASE API ──
+// ═══ DATABASE (localStorage) ═══
+const LS='abg_';
+const lsG=s=>{try{return JSON.parse(localStorage.getItem(LS+s)||'[]');}catch{return[];}};
+const lsS=(s,d)=>localStorage.setItem(LS+s,JSON.stringify(d));
 window.initDB=()=>Promise.resolve();
-
-window.GA=async(s)=>{
-try{const snap=await _col(s).get();return snap.docs.map(d=>({…d.data(),_fid:d.id}));}
-catch(e){console.error(‘GA’,s,e);return[];}
-};
-window.GO=async(s,id)=>{
-try{const snap=await _col(s).get();const f=snap.docs.find(d=>d.data().id===id);return f?{…f.data(),_fid:f.id}:null;}
-catch(e){return null;}
-};
-window.GP=async(s,data)=>{
-try{const snap=await _col(s).get();const ex=snap.docs.find(d=>d.data().id===data.id);
-if(ex)await _col(s).doc(ex.id).set(data);else await _col(s).add(data);return data.id;}
-catch(e){console.error(‘GP’,s,e);return null;}
-};
-window.GD=async(s,id)=>{
-try{const snap=await _col(s).get();const f=snap.docs.find(d=>d.data().id===id);if(f)await _col(s).doc(f.id).delete();}
-catch(e){console.error(‘GD’,s,id,e);}
-};
-window.GAD=async(s,data)=>{
-try{const snap=await _col(s).get();const ids=snap.docs.map(d=>d.data().id||0);
-const newId=ids.length?Math.max(…ids)+1:1;await _col(s).add({…data,id:newId});return newId;}
-catch(e){console.error(‘GAD’,s,e);return null;}
-};
-
-window.doGoogleLogin=async()=>{
-try{
-const btn=document.getElementById(‘login-btn’);
-if(btn){btn.textContent=‘Redirigiendo…’;btn.disabled=true;}
-await _auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
-}catch(e){
-const btn=document.getElementById(‘login-btn’);
-if(btn){btn.textContent=‘Entrar con Google’;btn.disabled=false;}
-console.error(‘Login error’,e);
-}
-};
-
-window.doLogout=async()=>{await _auth.signOut();location.reload();};
-
-// Handle redirect result then watch auth
-await _auth.getRedirectResult().catch(e=>console.error(‘Redirect result’,e));
-
-_auth.onAuthStateChanged(user=>{
-if(user){
-currentUID=user.uid;
-document.getElementById(‘login-screen’).style.display=‘none’;
-document.getElementById(‘app’).style.display=‘flex’;
-if(typeof bootApp===‘function’)bootApp();
-}else{
-currentUID=null;
-document.getElementById(‘login-screen’).style.display=‘flex’;
-document.getElementById(‘app’).style.display=‘none’;
-}
-});
-}
-
-// Arranca Firebase al cargar la página
-window.addEventListener(‘DOMContentLoaded’,()=>{
-initFirebase().catch(e=>{
-document.getElementById(‘login-screen’).innerHTML=` <div style="text-align:center;padding:40px;"> <div style="font-size:48px;margin-bottom:16px;">⚠️</div> <div style="font-size:16px;font-weight:700;color:#c03030;margin-bottom:8px;">Error de conexión</div> <div style="font-size:12px;color:#666;margin-bottom:20px;">${e.message}</div> <button onclick="location.reload()" style="padding:12px 24px;border-radius:12px;border:none; background:#3a8fc9;color:#fff;font-size:14px;cursor:pointer;">Reintentar</button> </div>`;
-});
-});
+window.GA=s=>Promise.resolve(lsG(s));
+window.GO=(s,id)=>Promise.resolve(lsG(s).find(x=>x.id===id)||null);
+window.GP=(s,d)=>{const a=lsG(s),i=a.findIndex(x=>x.id===d.id);if(i>=0)a[i]=d;else a.push(d);lsS(s,a);return Promise.resolve(d.id);};
+window.GD=(s,id)=>{lsS(s,lsG(s).filter(x=>x.id!==id));return Promise.resolve();};
+window.GAD=(s,d)=>{const a=lsG(s),id=a.length?Math.max(...a.map(x=>x.id||0))+1:1,item={...d,id};a.push(item);lsS(s,a);return Promise.resolve(id);};
 </script>
 
 <script>
 // ═══ DATABASE ═══ (Firestore via window.* set by module script above)
-// GA, GO, GP, GD, GAD are defined in the Firebase module script
+// GA, GO, GP, GD, GAD — localStorage API
 // localStorage still used only for AI insight cache (non-critical)
 function initDB(){return Promise.resolve();}
 
@@ -1202,13 +1081,8 @@ openModal(‘confirm’);document.getElementById(‘m-ttl’).textContent=‘⚠
 document.getElementById(‘m-body’).innerHTML=’<p style="font-size:13px;font-weight:600;color:var(--tl);line-height:1.6;margin-bottom:18px;">¿Seguro que quieres borrar TODOS los datos? Esta acción no se puede deshacer.</p><button class="bp" onclick="clearAll()" style="background:linear-gradient(135deg,#c03030,#e05050);">🗑 Sí, borrar todo</button><button class="bd" onclick="closeM()">Cancelar</button>’;
 }
 async function clearAll(){
-showToast(‘Borrando datos…’);
-for(const s of[‘tasks’,‘clients’,‘events’,‘invoices’,‘expenses’,‘notes’,‘activity’,‘profile’]){
-const items=await GA(s);
-for(const it of items) await GD(s,it.id);
-}
-localStorage.removeItem(‘abg_last_insight’);
-localStorage.removeItem(‘abg_last_insight_key’);
+[‘tasks’,‘clients’,‘events’,‘invoices’,‘expenses’,‘notes’,‘activity’,‘profile’].forEach(s=>localStorage.removeItem(LS+s));
+localStorage.removeItem(‘abg_last_insight’);localStorage.removeItem(‘abg_last_insight_key’);
 closeM();showToast(‘Datos borrados. Recargando…’);setTimeout(()=>location.reload(),2000);
 }
 
@@ -1334,10 +1208,9 @@ document.getElementById(‘m-ttl’).textContent=‘🔐 Seguridad’;
 document.getElementById(‘m-body’).innerHTML=` <div style="display:flex;flex-direction:column;gap:12px;"> <div style="padding:14px 16px;background:rgba(255,255,255,.6);border-radius:16px;border:1px solid rgba(255,255,255,.9);"> <div style="font-size:12px;font-weight:800;margin-bottom:4px;">🔒 PIN de acceso</div> <div style="font-size:11px;color:var(--tll);font-weight:600;margin-bottom:10px;">Protege tu app con un código PIN</div> <button class="bp" style="font-size:12px;padding:10px;" onclick="showToast('PIN — próximamente disponible')">Configurar PIN</button> </div> <div style="padding:14px 16px;background:rgba(255,255,255,.6);border-radius:16px;border:1px solid rgba(255,255,255,.9);"> <div style="font-size:12px;font-weight:800;margin-bottom:4px;">🧬 Biometría</div> <div style="font-size:11px;color:var(--tll);font-weight:600;margin-bottom:10px;">Huella dactilar o Face ID</div> <div class="tgl" onclick="this.classList.toggle('on');showToast('Biometría — próximamente disponible')"><div class="tknob"></div></div> </div> <div style="padding:14px 16px;background:rgba(255,255,255,.6);border-radius:16px;border:1px solid rgba(255,255,255,.9);"> <div style="font-size:12px;font-weight:800;margin-bottom:4px;">💾 Respaldo de datos</div> <div style="font-size:11px;color:var(--tll);font-weight:600;margin-bottom:10px;">Exporta todos tus datos</div> <button class="bp" style="font-size:12px;padding:10px;background:linear-gradient(135deg,var(--md),var(--bd));" onclick="exportData()">Exportar JSON</button> </div> </div>`;
 }
 async function exportData(){
-showToast(‘Exportando…’);
 const data={};
-for(const s of[‘tasks’,‘clients’,‘events’,‘invoices’,‘expenses’,‘notes’,‘activity’]){data[s]=await GA(s);}
-data.profile=await GO(‘profile’,1);
+for(const s of[‘tasks’,‘clients’,‘events’,‘invoices’,‘expenses’,‘notes’,‘activity’]){data[s]=lsG(s);}
+data.profile=lsG(‘profile’)[0]||null;
 const blob=new Blob([JSON.stringify(data,null,2)],{type:‘application/json’});
 const url=URL.createObjectURL(blob);const a=document.createElement(‘a’);
 a.href=url;a.download=`abgroup-backup-${new Date().toISOString().split('T')[0]}.json`;
@@ -1355,15 +1228,15 @@ await fetchAIInsight({tasks,clients,invoices,expenses,done,total,pct,rev,exp,pro
 }
 
 // ═══ BOOT ═══
+window.addEventListener(‘DOMContentLoaded’,bootApp);
+
 async function bootApp(){
 try{
-document.getElementById(‘s-home’).innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;"><div style="font-size:36px;">☁️</div><div style="font-size:13px;font-weight:700;color:var(--tl);">Conectando con la nube…</div></div>`;
-document.getElementById(‘s-home’).classList.add(‘on’);
 await initDB();
 await seed();
 renderHome();
 }catch(e){
-document.getElementById(‘s-home’).innerHTML=`<div style="padding:40px;text-align:center;"><div style="font-size:32px;margin-bottom:16px;">😕</div><div style="font-size:14px;font-weight:700;color:#c03030;">Error al conectar</div><div style="font-size:12px;color:var(--tll);margin-top:8px;">${e.message}</div></div>`;
+document.getElementById(‘s-home’).innerHTML=`<div style="padding:40px;text-align:center;"><div style="font-size:32px;margin-bottom:16px;">😕</div><div style="font-size:14px;font-weight:700;color:#c03030;">Error al iniciar</div><div style="font-size:12px;color:var(--tll);margin-top:8px;">${e.message}</div></div>`;
 }
 }
 </script>
