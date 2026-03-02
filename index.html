@@ -519,11 +519,39 @@ body{background:linear-gradient(135deg,#d8eaf8,#e8e0f8,#d8f5ea);display:flex;ali
   <!-- TOAST -->
 
   <div id="toast"><div style="font-size:20px;" id="t-ico">ℹ️</div><div style="flex:1;font-size:12px;font-weight:800;" id="t-msg"></div><button id="tclose" onclick="hideToast()">×</button></div>
+</div>
+
 <script>
-// ═══ DATABASE (localStorage) ═══
+
+
+// ═══ DATABASE ═══
+// Uses localStorage with in-memory fallback for Safari private mode
 const LS='abg_';
-const lsG=s=>{try{return JSON.parse(localStorage.getItem(LS+s)||'[]');}catch{return[];}};
-const lsS=(s,d)=>localStorage.setItem(LS+s,JSON.stringify(d));
+const _mem={};
+let _useMem=false;
+
+function lsTest(){try{localStorage.setItem('_t','1');localStorage.removeItem('_t');return true;}catch(e){return false;}}
+if(!lsTest()){_useMem=true;console.warn('localStorage blocked — using memory storage (data wont persist)');}
+
+const lsG=s=>{
+  if(_useMem)return _mem[LS+s]||[];
+  try{return JSON.parse(localStorage.getItem(LS+s)||'[]');}catch{return[];}
+};
+const lsS=(s,d)=>{
+  if(_useMem){_mem[LS+s]=d;return;}
+  try{localStorage.setItem(LS+s,JSON.stringify(d));}catch(e){console.warn('Storage full',e);}
+};
+
+
+// Safe localStorage helper for non-critical cache
+function _safeLS(op,key,val){
+  try{
+    if(op==='get')return localStorage.getItem(key);
+    if(op==='set')localStorage.setItem(key,val);
+    if(op==='del')localStorage.removeItem(key);
+  }catch(e){}
+  return null;
+}
 window.initDB=()=>Promise.resolve();
 window.GA=s=>Promise.resolve(lsG(s));
 window.GO=(s,id)=>Promise.resolve(lsG(s).find(x=>x.id===id)||null);
@@ -535,322 +563,363 @@ function initDB(){return Promise.resolve();}
 
 // ═══ SEED ═══
 async function seed(){
-const p=await GO(‘profile’,1);
-if(!p)await GP(‘profile’,{id:1,name:‘Tu Nombre’,role:‘Tu Cargo’,email:’’,company:‘A&B Group’,initials:‘AB’});
+  const p=await GO('profile',1);
+  if(!p)await GP('profile',{id:1,name:'Tu Nombre',role:'Tu Cargo',email:'',company:'A&B Group',initials:'AB'});
 }
 
 // ═══ NAV ═══
-let CS=‘home’;
+let CS='home';
 const screens={home:renderHome,calendar:renderCal,tasks:renderTasks,clients:renderClients,finance:renderFin,notes:renderNotes,profile:renderProfile};
-function nav(p){document.querySelectorAll(’.scr’).forEach(s=>s.classList.remove(‘on’));document.querySelectorAll(’.ni’).forEach(n=>n.classList.remove(‘on’));document.getElementById(‘s-’+p).classList.add(‘on’);const ni=document.getElementById(‘ni-’+p);if(ni)ni.classList.add(‘on’);CS=p;(screens[p]||function(){})();}
+function nav(p){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));document.getElementById('s-'+p).classList.add('on');const ni=document.getElementById('ni-'+p);if(ni)ni.classList.add('on');CS=p;(screens[p]||function(){})();}
 
 // ═══ UTILS ═══
-function esc(s){return s?String(s).replace(/&/g,’&’).replace(/</g,’<’).replace(/>/g,’>’).replace(/”/g,’"’):’’;}
-function fmtN(n){if(!n&&n!==0)return’0’;if(n>=1000)return(n/1000).toFixed(1).replace(/.0$/,’’)+‘K’;return n.toLocaleString();}
-function fmtD(ds){if(!ds)return’’;const d=new Date(ds+‘T12:00:00’);return d.toLocaleDateString(‘es-ES’,{day:‘numeric’,month:‘short’});}
-function ago(ts){const d=Date.now()-ts,m=Math.floor(d/60000),h=Math.floor(d/3600000),dy=Math.floor(d/86400000);if(dy>0)return`hace ${dy}d`;if(h>0)return`hace ${h}h`;if(m>0)return`hace ${m}min`;return’ahora’;}
-function agoS(ts){const d=Date.now()-ts,dy=Math.floor(d/86400000);if(dy>0)return`${dy}d`;const h=Math.floor(d/3600000);if(h>0)return`${h}h`;return’ahora’;}
-async function logAct(icon,title,desc,color){await GAD(‘activity’,{icon,title,desc,color,time:Date.now()});const all=await GA(‘activity’);if(all.length>25){const s=all.sort((a,b)=>a.time-b.time);for(let i=0;i<all.length-25;i++)await GD(‘activity’,s[i].id);}}
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
+function fmtN(n){if(!n&&n!==0)return'0';if(n>=1000)return(n/1000).toFixed(1).replace(/\.0$/,'')+'K';return n.toLocaleString();}
+function fmtD(ds){if(!ds)return'';const d=new Date(ds+'T12:00:00');return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'});}
+function ago(ts){const d=Date.now()-ts,m=Math.floor(d/60000),h=Math.floor(d/3600000),dy=Math.floor(d/86400000);if(dy>0)return`hace ${dy}d`;if(h>0)return`hace ${h}h`;if(m>0)return`hace ${m}min`;return'ahora';}
+function agoS(ts){const d=Date.now()-ts,dy=Math.floor(d/86400000);if(dy>0)return`${dy}d`;const h=Math.floor(d/3600000);if(h>0)return`${h}h`;return'ahora';}
+async function logAct(icon,title,desc,color){await GAD('activity',{icon,title,desc,color,time:Date.now()});const all=await GA('activity');if(all.length>25){const s=all.sort((a,b)=>a.time-b.time);for(let i=0;i<all.length-25;i++)await GD('activity',s[i].id);}}
 
 // ═══ AI INSIGHTS ═══
 let lastInsightData=null; // cache to avoid calling API if data unchanged
 async function fetchAIInsight({tasks,clients,invoices,expenses,done,total,pct,rev,exp,profit}){
-const el=document.getElementById(‘ai-ins’);
-if(!el)return;
+  const el=document.getElementById('ai-ins');
+  if(!el)return;
 
-// Build a compact data summary
-const urgentTasks=tasks.filter(t=>t.status!==‘done’&&t.priority===‘high’).map(t=>t.title).slice(0,3);
-const pendingInvs=invoices.filter(i=>i.status===‘pending’);
-const overdueInvs=invoices.filter(i=>i.status===‘overdue’);
-const activeClients=clients.filter(c=>c.status===‘active’).length;
-const leads=clients.filter(c=>c.status===‘lead’).length;
-const today=new Date().toLocaleDateString(‘es-ES’,{weekday:‘long’,day:‘numeric’,month:‘long’});
+  // Build a compact data summary
+  const urgentTasks=tasks.filter(t=>t.status!=='done'&&t.priority==='high').map(t=>t.title).slice(0,3);
+  const pendingInvs=invoices.filter(i=>i.status==='pending');
+  const overdueInvs=invoices.filter(i=>i.status==='overdue');
+  const activeClients=clients.filter(c=>c.status==='active').length;
+  const leads=clients.filter(c=>c.status==='lead').length;
+  const today=new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 
-// Cache key — only re-fetch if data changed significantly
-const cacheKey=`${done}-${total}-${rev}-${exp}-${pendingInvs.length}-${overdueInvs.length}`;
-const cached=localStorage.getItem(‘abg_last_insight’);
-const cachedKey=localStorage.getItem(‘abg_last_insight_key’);
-if(cached&&cachedKey===cacheKey){el.textContent=cached;return;}
+  // Cache key — only re-fetch if data changed significantly
+  const cacheKey=`${done}-${total}-${rev}-${exp}-${pendingInvs.length}-${overdueInvs.length}`;
+  const cached=_useMem?null:_safeLS('get','abg_last_insight');
+  const cachedKey=_useMem?null:_safeLS('get','abg_last_insight_key');
+  if(cached&&cachedKey===cacheKey){el.textContent=cached;return;}
 
-el.innerHTML=’<span style="opacity:.5;">Analizando tu semana…</span>’;
+  el.innerHTML='<span style="opacity:.5;">Analizando tu semana…</span>';
 
-const prompt=`Eres el asistente de negocio de un emprendedor. Analiza estos datos y da UN insight accionable en máximo 2 líneas en español. Sé directo y específico, no genérico.
+  const prompt=`Eres el asistente de negocio de un emprendedor. Analiza estos datos y da UN insight accionable en máximo 2 líneas en español. Sé directo y específico, no genérico.
 
 Hoy: ${today}
 Tareas: ${done}/${total} completadas (${pct}%)
-Tareas urgentes pendientes: ${urgentTasks.length>0?urgentTasks.join(’, ‘):‘ninguna’}
+Tareas urgentes pendientes: ${urgentTasks.length>0?urgentTasks.join(', '):'ninguna'}
 Clientes activos: ${activeClients}, Leads: ${leads}
 Ingresos cobrados: $${rev.toLocaleString()}
 Gastos: $${exp.toLocaleString()}
 Ganancia: $${profit.toLocaleString()}
-Facturas pendientes: ${pendingInvs.length}${overdueInvs.length>0?’ (’+overdueInvs.length+’ VENCIDAS)’:’’}
+Facturas pendientes: ${pendingInvs.length}${overdueInvs.length>0?' ('+overdueInvs.length+' VENCIDAS)':''}
 
 Responde SOLO el insight, sin introducción ni explicación extra.`;
 
-try{
-const resp=await fetch(‘https://api.anthropic.com/v1/messages’,{
-method:‘POST’,
-headers:{‘Content-Type’:‘application/json’},
-body:JSON.stringify({
-model:‘claude-sonnet-4-20250514’,
-max_tokens:120,
-messages:[{role:‘user’,content:prompt}]
-})
-});
-if(!resp.ok)throw new Error(‘API error’);
-const data=await resp.json();
-const text=data.content?.[0]?.text?.trim();
-if(text){
-el.textContent=text;
-localStorage.setItem(‘abg_last_insight’,text);
-localStorage.setItem(‘abg_last_insight_key’,cacheKey);
-}else{el.textContent=‘Toca para actualizar tu insight semanal.’;}
-}catch(e){
-// Fallback to smart local insight if API unavailable
-const local=overdueInvs.length>0
-?`Tienes ${overdueInvs.length} factura${overdueInvs.length>1?'s':''} vencida${overdueInvs.length>1?'s':''}. Contácta al cliente hoy.`
-:urgentTasks.length>0
-?`Prioritario hoy: "${urgentTasks[0]}". ${done}/${total} tareas completadas esta semana.`
-:pct>=80?`Excelente semana — ${pct}% completado. ${leads} lead${leads!==1?'s':''} esperan seguimiento.`
-:`${total-done} tarea${total-done!==1?'s':''} pendiente${total-done!==1?'s':''}. Foco en las urgentes primero.`;
-el.textContent=local;
-}
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:120,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if(!resp.ok)throw new Error('API error');
+    const data=await resp.json();
+    const text=data.content?.[0]?.text?.trim();
+    if(text){
+      el.textContent=text;
+      _safeLS('set','abg_last_insight',text);
+      _safeLS('set','abg_last_insight_key',cacheKey);
+    }else{el.textContent='Toca para actualizar tu insight semanal.';}
+  }catch(e){
+    // Fallback to smart local insight if API unavailable
+    const local=overdueInvs.length>0
+      ?`Tienes ${overdueInvs.length} factura${overdueInvs.length>1?'s':''} vencida${overdueInvs.length>1?'s':''}. Contácta al cliente hoy.`
+      :urgentTasks.length>0
+      ?`Prioritario hoy: "${urgentTasks[0]}". ${done}/${total} tareas completadas esta semana.`
+      :pct>=80?`Excelente semana — ${pct}% completado. ${leads} lead${leads!==1?'s':''} esperan seguimiento.`
+      :`${total-done} tarea${total-done!==1?'s':''} pendiente${total-done!==1?'s':''}. Foco en las urgentes primero.`;
+    el.textContent=local;
+  }
 }
 
 // ═══ HOME ═══
 async function renderHome(){
-const now=new Date(),h=now.getHours();
-const g=h<12?‘Buenos días’:h<18?‘Buenas tardes’:‘Buenas noches’;
-const em=h<12?‘☀️’:h<18?‘🌤️’:‘🌙’;
-const p=await GO(‘profile’,1);
-const nm=p?p.name.split(’ ‘)[0]:‘Alex’;
-document.getElementById(‘greet’).innerHTML=`${g}, <span style="background:linear-gradient(135deg,var(--bd),var(--ld));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900;">${esc(nm)}!</span> ${em}`;
-document.getElementById(‘greet-d’).textContent=now.toLocaleDateString(‘es-ES’,{weekday:‘long’,year:‘numeric’,month:‘long’,day:‘numeric’});
-const av=document.getElementById(‘home-av’);if(p&&av)av.textContent=p.initials||‘AB’;
-const[tasks,clients,invoices,expenses]=await Promise.all([GA(‘tasks’),GA(‘clients’),GA(‘invoices’),GA(‘expenses’)]);
-const done=tasks.filter(t=>t.status===‘done’).length,total=tasks.length,pct=total>0?Math.round(done/total*100):0;
-const rev=invoices.filter(i=>i.status===‘paid’).reduce((a,i)=>a+i.amount,0);
-const exp=expenses.reduce((a,e)=>a+e.amount,0),profit=rev-exp;
-// Trigger AI insight (non-blocking, runs in background)
-fetchAIInsight({tasks,clients,invoices,expenses,done,total,pct,rev,exp,profit});
-document.getElementById(‘h-pills’).innerHTML=` <div class="pill mint-bg"><span class="p-i">✅</span><span class="p-t">Tareas</span><span class="p-v">${done}/${total}</span></div> <div class="pill blue-bg"><span class="p-i">👥</span><span class="p-t">Clientes</span><span class="p-v">${clients.filter(c=>c.status==='active').length} activos</span></div> <div class="pill peach-bg"><span class="p-i">💰</span><span class="p-t">Ingresos</span><span class="p-v">$${fmtN(rev)}</span></div> <div class="pill lav-bg"><span class="p-i">📄</span><span class="p-t">Facturas</span><span class="p-v">${invoices.filter(i=>i.status==='pending').length} pend.</span></div>`;
-const off=158*(1-pct/100);
-document.getElementById(‘h-metrics’).innerHTML=` <div class="card mc mint-bg" style="padding:16px;"><div class="ml">Progreso Semanal</div><div class="mv">${pct}%</div><div class="ms">${done} de ${total} metas</div><div class="circ"><svg viewBox="0 0 60 60"><circle class="cbg" cx="30" cy="30" r="26"/><circle class="cfl" cx="30" cy="30" r="26" stroke="rgba(26,96,64,.5)" style="stroke-dashoffset:${off};"/></svg><div class="cpct" style="font-size:11px;">${pct}%</div></div></div> <div class="card mc blue-bg" style="padding:16px;"><div class="ml">Tareas Hechas</div><div class="mv">${done}</div><div class="ms">de ${total} total</div><div class="bw" style="margin-top:14px;"><div class="bf" style="background:rgba(26,74,120,.5);width:${pct}%;"></div></div><div class="mib">✓</div></div> <div class="card mc peach-bg" style="padding:16px;"><div class="ml">Ingresos</div><div class="mv">$${fmtN(rev)}</div><div class="ms">Facturas cobradas</div><div class="mbg">💰</div><div class="mib">$</div></div> <div class="card mc lav-bg" style="padding:16px;"><div class="ml">Gastos</div><div class="mv">$${fmtN(exp)}</div><div class="ms">Este período</div><div class="mib">⬇</div></div> <div class="card mc wide yel-bg" style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div class="ml">Ganancia Neta</div><div class="mv" style="font-size:30px;">$${fmtN(profit)}</div><div class="ms">Margen: ${rev>0?Math.round(profit/rev*100):0}%</div></div><div class="circ" style="margin:0;"><svg viewBox="0 0 60 60"><circle class="cbg" cx="30" cy="30" r="26"/><circle class="cfl" cx="30" cy="30" r="26" stroke="rgba(106,80,16,.55)" style="stroke-dashoffset:${158*(1-Math.max(0,Math.min(rev>0?profit/rev:0,1)))};"/></svg><div class="cpct" style="font-size:11px;">${rev>0?Math.round(profit/rev*100):0}%</div></div></div></div>`;
-const activity=await GA(‘activity’);
-const sorted=activity.sort((a,b)=>b.time-a.time).slice(0,5);
-const tl=document.getElementById(‘h-tl’);
-if(!sorted.length){tl.innerHTML=’<div class="emp"><div class="emp-i">📋</div><div class="emp-t">Sin actividad reciente</div></div>’;return;}
-tl.innerHTML=sorted.map((a,i)=>`<div class="tli"><div class="tdc"><div class="td" style="background:${a.color};"></div>${i<sorted.length-1?'<div class="tln"></div>':''}</div><div class="tbd"><div class="card tlc"><div class="tlt">${a.icon} ${esc(a.title)}</div><div class="tld">${esc(a.desc)}</div><div class="tlm">${ago(a.time)}</div></div></div></div>`).join(’’);
+  const now=new Date(),h=now.getHours();
+  const g=h<12?'Buenos días':h<18?'Buenas tardes':'Buenas noches';
+  const em=h<12?'☀️':h<18?'🌤️':'🌙';
+  const p=await GO('profile',1);
+  const nm=p?p.name.split(' ')[0]:'Alex';
+  document.getElementById('greet').innerHTML=`${g}, <span style="background:linear-gradient(135deg,var(--bd),var(--ld));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900;">${esc(nm)}!</span> ${em}`;
+  document.getElementById('greet-d').textContent=now.toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const av=document.getElementById('home-av');if(p&&av)av.textContent=p.initials||'AB';
+  const[tasks,clients,invoices,expenses]=await Promise.all([GA('tasks'),GA('clients'),GA('invoices'),GA('expenses')]);
+  const done=tasks.filter(t=>t.status==='done').length,total=tasks.length,pct=total>0?Math.round(done/total*100):0;
+  const rev=invoices.filter(i=>i.status==='paid').reduce((a,i)=>a+i.amount,0);
+  const exp=expenses.reduce((a,e)=>a+e.amount,0),profit=rev-exp;
+  // Trigger AI insight (non-blocking, runs in background)
+  fetchAIInsight({tasks,clients,invoices,expenses,done,total,pct,rev,exp,profit});
+  document.getElementById('h-pills').innerHTML=`
+    <div class="pill mint-bg"><span class="p-i">✅</span><span class="p-t">Tareas</span><span class="p-v">${done}/${total}</span></div>
+    <div class="pill blue-bg"><span class="p-i">👥</span><span class="p-t">Clientes</span><span class="p-v">${clients.filter(c=>c.status==='active').length} activos</span></div>
+    <div class="pill peach-bg"><span class="p-i">💰</span><span class="p-t">Ingresos</span><span class="p-v">$${fmtN(rev)}</span></div>
+    <div class="pill lav-bg"><span class="p-i">📄</span><span class="p-t">Facturas</span><span class="p-v">${invoices.filter(i=>i.status==='pending').length} pend.</span></div>`;
+  const off=158*(1-pct/100);
+  document.getElementById('h-metrics').innerHTML=`
+    <div class="card mc mint-bg" style="padding:16px;"><div class="ml">Progreso Semanal</div><div class="mv">${pct}%</div><div class="ms">${done} de ${total} metas</div><div class="circ"><svg viewBox="0 0 60 60"><circle class="cbg" cx="30" cy="30" r="26"/><circle class="cfl" cx="30" cy="30" r="26" stroke="rgba(26,96,64,.5)" style="stroke-dashoffset:${off};"/></svg><div class="cpct" style="font-size:11px;">${pct}%</div></div></div>
+    <div class="card mc blue-bg" style="padding:16px;"><div class="ml">Tareas Hechas</div><div class="mv">${done}</div><div class="ms">de ${total} total</div><div class="bw" style="margin-top:14px;"><div class="bf" style="background:rgba(26,74,120,.5);width:${pct}%;"></div></div><div class="mib">✓</div></div>
+    <div class="card mc peach-bg" style="padding:16px;"><div class="ml">Ingresos</div><div class="mv">$${fmtN(rev)}</div><div class="ms">Facturas cobradas</div><div class="mbg">💰</div><div class="mib">$</div></div>
+    <div class="card mc lav-bg" style="padding:16px;"><div class="ml">Gastos</div><div class="mv">$${fmtN(exp)}</div><div class="ms">Este período</div><div class="mib">⬇</div></div>
+    <div class="card mc wide yel-bg" style="padding:16px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div class="ml">Ganancia Neta</div><div class="mv" style="font-size:30px;">$${fmtN(profit)}</div><div class="ms">Margen: ${rev>0?Math.round(profit/rev*100):0}%</div></div><div class="circ" style="margin:0;"><svg viewBox="0 0 60 60"><circle class="cbg" cx="30" cy="30" r="26"/><circle class="cfl" cx="30" cy="30" r="26" stroke="rgba(106,80,16,.55)" style="stroke-dashoffset:${158*(1-Math.max(0,Math.min(rev>0?profit/rev:0,1)))};"/></svg><div class="cpct" style="font-size:11px;">${rev>0?Math.round(profit/rev*100):0}%</div></div></div></div>`;
+  const activity=await GA('activity');
+  const sorted=activity.sort((a,b)=>b.time-a.time).slice(0,5);
+  const tl=document.getElementById('h-tl');
+  if(!sorted.length){tl.innerHTML='<div class="emp"><div class="emp-i">📋</div><div class="emp-t">Sin actividad reciente</div></div>';return;}
+  tl.innerHTML=sorted.map((a,i)=>`<div class="tli"><div class="tdc"><div class="td" style="background:${a.color};"></div>${i<sorted.length-1?'<div class="tln"></div>':''}</div><div class="tbd"><div class="card tlc"><div class="tlt">${a.icon} ${esc(a.title)}</div><div class="tld">${esc(a.desc)}</div><div class="tlm">${ago(a.time)}</div></div></div></div>`).join('');
 }
 
 // ═══ CALENDAR ═══
-let CY=new Date().getFullYear(),CM=new Date().getMonth(),SD=new Date().toISOString().split(‘T’)[0];
-const MONS=[‘Enero’,‘Febrero’,‘Marzo’,‘Abril’,‘Mayo’,‘Junio’,‘Julio’,‘Agosto’,‘Septiembre’,‘Octubre’,‘Noviembre’,‘Diciembre’];
-const EVC={blue:{bg:‘linear-gradient(135deg,rgba(200,232,248,.85),rgba(168,212,240,.7))’,dot:’#3a8fc9’,ln:’#5fa8d3’},pink:{bg:‘linear-gradient(135deg,rgba(248,200,220,.85),rgba(248,180,210,.7))’,dot:’#d84880’,ln:’#e88aaa’},mint:{bg:‘linear-gradient(135deg,rgba(196,248,226,.85),rgba(160,240,200,.7))’,dot:’#4cc98a’,ln:’#6dd9a8’},yellow:{bg:‘linear-gradient(135deg,rgba(254,244,196,.85),rgba(252,230,160,.7))’,dot:’#c8a820’,ln:’#e8c850’},lav:{bg:‘linear-gradient(135deg,rgba(228,212,250,.85),rgba(208,190,244,.7))’,dot:’#8860c8’,ln:’#a88ed1’},peach:{bg:‘linear-gradient(135deg,rgba(252,220,196,.85),rgba(248,200,170,.7))’,dot:’#e8834a’,ln:’#f4a27a’}};
+let CY=new Date().getFullYear(),CM=new Date().getMonth(),SD=new Date().toISOString().split('T')[0];
+const MONS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const EVC={blue:{bg:'linear-gradient(135deg,rgba(200,232,248,.85),rgba(168,212,240,.7))',dot:'#3a8fc9',ln:'#5fa8d3'},pink:{bg:'linear-gradient(135deg,rgba(248,200,220,.85),rgba(248,180,210,.7))',dot:'#d84880',ln:'#e88aaa'},mint:{bg:'linear-gradient(135deg,rgba(196,248,226,.85),rgba(160,240,200,.7))',dot:'#4cc98a',ln:'#6dd9a8'},yellow:{bg:'linear-gradient(135deg,rgba(254,244,196,.85),rgba(252,230,160,.7))',dot:'#c8a820',ln:'#e8c850'},lav:{bg:'linear-gradient(135deg,rgba(228,212,250,.85),rgba(208,190,244,.7))',dot:'#8860c8',ln:'#a88ed1'},peach:{bg:'linear-gradient(135deg,rgba(252,220,196,.85),rgba(248,200,170,.7))',dot:'#e8834a',ln:'#f4a27a'}};
 async function renderCal(){buildCG();renderDE(SD);}
 async function buildCG(){
-document.getElementById(‘cal-lbl’).textContent=`${MONS[CM]} ${CY}`;
-document.getElementById(‘cal-sub’).textContent=`${MONS[CM]} ${CY}`;
-const fd=new Date(CY,CM,1).getDay(),days=new Date(CY,CM+1,0).getDate(),pv=new Date(CY,CM,0).getDate();
-const today=new Date().toISOString().split(‘T’)[0];
-let h=’’;
-for(let i=fd-1;i>=0;i–)h+=`<div class="cday oth">${pv-i}</div>`;
-for(let d=1;d<=days;d++){const ds=`${CY}-${String(CM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;let c=‘cday’;if(ds===today)c+=’ today’;else if(ds===SD)c+=’ sel’;h+=`<div class="${c}" onclick="selDay('${ds}',this)">${d}</div>`;}
-const rem=42-(fd+days);for(let d=1;d<=rem;d++)h+=`<div class="cday oth">${d}</div>`;
-document.getElementById(‘cal-g’).innerHTML=h;
-const evs=await GA(‘events’);const g=document.getElementById(‘cal-g’);if(!g)return;
-evs.forEach(ev=>{const d=new Date(ev.date+‘T12:00:00’);if(d.getFullYear()===CY&&d.getMonth()===CM){const idx=new Date(CY,CM,1).getDay()+d.getDate()-1;const el=g.children[idx];if(el&&!el.classList.contains(‘today’))el.classList.add(‘hev’);}});
+  document.getElementById('cal-lbl').textContent=`${MONS[CM]} ${CY}`;
+  document.getElementById('cal-sub').textContent=`${MONS[CM]} ${CY}`;
+  const fd=new Date(CY,CM,1).getDay(),days=new Date(CY,CM+1,0).getDate(),pv=new Date(CY,CM,0).getDate();
+  const today=new Date().toISOString().split('T')[0];
+  let h='';
+  for(let i=fd-1;i>=0;i--)h+=`<div class="cday oth">${pv-i}</div>`;
+  for(let d=1;d<=days;d++){const ds=`${CY}-${String(CM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;let c='cday';if(ds===today)c+=' today';else if(ds===SD)c+=' sel';h+=`<div class="${c}" onclick="selDay('${ds}',this)">${d}</div>`;}
+  const rem=42-(fd+days);for(let d=1;d<=rem;d++)h+=`<div class="cday oth">${d}</div>`;
+  document.getElementById('cal-g').innerHTML=h;
+  const evs=await GA('events');const g=document.getElementById('cal-g');if(!g)return;
+  evs.forEach(ev=>{const d=new Date(ev.date+'T12:00:00');if(d.getFullYear()===CY&&d.getMonth()===CM){const idx=new Date(CY,CM,1).getDay()+d.getDate()-1;const el=g.children[idx];if(el&&!el.classList.contains('today'))el.classList.add('hev');}});
 }
-function selDay(ds,el){document.querySelectorAll(’.cday.sel’).forEach(d=>d.classList.remove(‘sel’));if(!el.classList.contains(‘today’))el.classList.add(‘sel’);SD=ds;renderDE(ds);}
+function selDay(ds,el){document.querySelectorAll('.cday.sel').forEach(d=>d.classList.remove('sel'));if(!el.classList.contains('today'))el.classList.add('sel');SD=ds;renderDE(ds);}
 async function renderDE(date){
-const evs=await GA(‘events’);
-const de=evs.filter(e=>e.date===date).sort((a,b)=>a.time.localeCompare(b.time));
-const cnt=document.getElementById(‘day-evs’),ins=document.getElementById(‘cal-ins’);
-if(!cnt)return;
-if(!de.length){cnt.innerHTML=’<div class="emp"><div class="emp-i">📅</div><div class="emp-t">Sin eventos este día</div><div class="emp-d">Toca + para agregar un evento</div></div>’;if(ins)ins.style.display=‘none’;return;}
-cnt.innerHTML=de.map((ev,i)=>{const c=EVC[ev.color]||EVC.blue;return`<div class="tev"><div class="tet">${ev.time}</div><div class="ter"><div class="ted" style="background:${c.dot};"></div>${i<de.length-1?`<div class="tel" style="background:linear-gradient(to bottom,${c.ln},transparent);"></div>`:''}</div><div class="tec" style="background:${c.bg};border:1px solid rgba(255,255,255,.9);" onclick="openEvDet(${ev.id})"><div class="tect">${esc(ev.title)}</div><div class="tecd">${esc(ev.desc||'')} · ${ev.duration}min</div></div></div>`;}).join(’’);
-if(ins)ins.style.display=de.length<4?‘flex’:‘none’;
+  const evs=await GA('events');
+  const de=evs.filter(e=>e.date===date).sort((a,b)=>a.time.localeCompare(b.time));
+  const cnt=document.getElementById('day-evs'),ins=document.getElementById('cal-ins');
+  if(!cnt)return;
+  if(!de.length){cnt.innerHTML='<div class="emp"><div class="emp-i">📅</div><div class="emp-t">Sin eventos este día</div><div class="emp-d">Toca + para agregar un evento</div></div>';if(ins)ins.style.display='none';return;}
+  cnt.innerHTML=de.map((ev,i)=>{const c=EVC[ev.color]||EVC.blue;return`<div class="tev"><div class="tet">${ev.time}</div><div class="ter"><div class="ted" style="background:${c.dot};"></div>${i<de.length-1?`<div class="tel" style="background:linear-gradient(to bottom,${c.ln},transparent);"></div>`:''}</div><div class="tec" style="background:${c.bg};border:1px solid rgba(255,255,255,.9);" onclick="openEvDet(${ev.id})"><div class="tect">${esc(ev.title)}</div><div class="tecd">${esc(ev.desc||'')} · ${ev.duration}min</div></div></div>`;}).join('');
+  if(ins)ins.style.display=de.length<4?'flex':'none';
 }
-function chMon(dir){CM+=dir;if(CM>11){CM=0;CY++;}if(CM<0){CM=11;CY–;}buildCG();}
+function chMon(dir){CM+=dir;if(CM>11){CM=0;CY++;}if(CM<0){CM=11;CY--;}buildCG();}
 
 // ═══ TASKS ═══
-let KM=false,TF=‘all’;
-const PR={high:{c:’#e8834a’,l:‘🔥 Alta’},medium:{c:’#c8a820’,l:‘⚡ Media’},low:{c:’#4cc98a’,l:‘📋 Baja’}};
+let KM=false,TF='all';
+const PR={high:{c:'#e8834a',l:'🔥 Alta'},medium:{c:'#c8a820',l:'⚡ Media'},low:{c:'#4cc98a',l:'📋 Baja'}};
 async function renderTasks(){
-const tasks=await GA(‘tasks’);
-const done=tasks.filter(t=>t.status===‘done’).length,total=tasks.length,pct=total>0?Math.round(done/total*100):0;
-const fl=document.getElementById(‘tc-fl’);if(fl){fl.style.strokeDashoffset=158*(1-pct/100);document.getElementById(‘tc-pct’).textContent=pct+’%’;document.getElementById(‘tc-sub’).textContent=`${done}/${total}`;}
-const h=tasks.filter(t=>t.priority===‘high’).length,m=tasks.filter(t=>t.priority===‘medium’).length,l=tasks.filter(t=>t.priority===‘low’).length;
-const pb=document.getElementById(‘t-prio-bk’);if(pb)pb.innerHTML=`<div style="display:flex;gap:7px;align-items:center;"><div style="width:7px;height:7px;border-radius:50%;background:#e8834a;"></div><div style="font-size:10px;font-weight:700;">Alta: ${h}</div></div><div style="display:flex;gap:7px;align-items:center;"><div style="width:7px;height:7px;border-radius:50%;background:#c8a820;"></div><div style="font-size:10px;font-weight:700;">Media: ${m}</div></div><div style="display:flex;gap:7px;align-items:center;"><div style="width:7px;height:7px;border-radius:50%;background:#4cc98a;"></div><div style="font-size:10px;font-weight:700;">Baja: ${l}</div></div>`;
-const pend=tasks.filter(t=>t.status!==‘done’).length;document.getElementById(‘t-sub’).textContent=`${pend} pendiente${pend!==1?'s':''}`;
-if(KM){renderKanban(tasks);return;}
-let fil=tasks;if(TF===‘pending’)fil=tasks.filter(t=>t.status!==‘done’);else if(TF===‘done’)fil=tasks.filter(t=>t.status===‘done’);else if(TF===‘high’)fil=tasks.filter(t=>t.priority===‘high’&&t.status!==‘done’);
-const srt=[…fil].sort((a,b)=>{const po={high:0,medium:1,low:2};if(a.status===‘done’&&b.status!==‘done’)return 1;if(b.status===‘done’&&a.status!==‘done’)return-1;return(po[a.priority]||1)-(po[b.priority]||1);});
-const cnt=document.getElementById(‘t-items’);if(!cnt)return;
-if(!srt.length){cnt.innerHTML=’<div class="emp"><div class="emp-i">🎉</div><div class="emp-t">¡Todo listo!</div><div class="emp-d">No hay tareas en esta categoría</div></div>’;return;}
-cnt.innerHTML=srt.map(t=>{const pr=PR[t.priority]||PR.medium,isDone=t.status===‘done’,bw=isDone?100:(t.progress||0);return`<div class="ti"><div class="tck ${isDone?'done':''}" style="border-color:${pr.c};${isDone?`background:${pr.c};`:''}" onclick="togTask(${t.id},event)">${isDone?'✓':''}</div><div class="tinf" onclick="openTDet(${t.id})"><div class="tttl ${isDone?'done':''}">${esc(t.title)}</div><div class="tmeta"><span class="ttag" style="background:${pr.c}22;color:${pr.c};">${pr.l}</span>${t.deadline?`<span class="tdue">Vence ${fmtD(t.deadline)}</span>`:''} ${t.project?`<span class="tdue">· ${esc(t.project)}</span>`:''}</div>${bw>0&&!isDone?`<div class="bw" style="margin-top:5px;"><div class="bf" style="width:${bw}%;background:linear-gradient(90deg,${pr.c}88,${pr.c});"></div></div>`:''}</div><div class="tprio" style="background:${pr.c};"></div><button class="tdel" onclick="delTask(${t.id},event)">🗑</button></div>`;}).join(’’);
+  const tasks=await GA('tasks');
+  const done=tasks.filter(t=>t.status==='done').length,total=tasks.length,pct=total>0?Math.round(done/total*100):0;
+  const fl=document.getElementById('tc-fl');if(fl){fl.style.strokeDashoffset=158*(1-pct/100);document.getElementById('tc-pct').textContent=pct+'%';document.getElementById('tc-sub').textContent=`${done}/${total}`;}
+  const h=tasks.filter(t=>t.priority==='high').length,m=tasks.filter(t=>t.priority==='medium').length,l=tasks.filter(t=>t.priority==='low').length;
+  const pb=document.getElementById('t-prio-bk');if(pb)pb.innerHTML=`<div style="display:flex;gap:7px;align-items:center;"><div style="width:7px;height:7px;border-radius:50%;background:#e8834a;"></div><div style="font-size:10px;font-weight:700;">Alta: ${h}</div></div><div style="display:flex;gap:7px;align-items:center;"><div style="width:7px;height:7px;border-radius:50%;background:#c8a820;"></div><div style="font-size:10px;font-weight:700;">Media: ${m}</div></div><div style="display:flex;gap:7px;align-items:center;"><div style="width:7px;height:7px;border-radius:50%;background:#4cc98a;"></div><div style="font-size:10px;font-weight:700;">Baja: ${l}</div></div>`;
+  const pend=tasks.filter(t=>t.status!=='done').length;document.getElementById('t-sub').textContent=`${pend} pendiente${pend!==1?'s':''}`;
+  if(KM){renderKanban(tasks);return;}
+  let fil=tasks;if(TF==='pending')fil=tasks.filter(t=>t.status!=='done');else if(TF==='done')fil=tasks.filter(t=>t.status==='done');else if(TF==='high')fil=tasks.filter(t=>t.priority==='high'&&t.status!=='done');
+  const srt=[...fil].sort((a,b)=>{const po={high:0,medium:1,low:2};if(a.status==='done'&&b.status!=='done')return 1;if(b.status==='done'&&a.status!=='done')return-1;return(po[a.priority]||1)-(po[b.priority]||1);});
+  const cnt=document.getElementById('t-items');if(!cnt)return;
+  if(!srt.length){cnt.innerHTML='<div class="emp"><div class="emp-i">🎉</div><div class="emp-t">¡Todo listo!</div><div class="emp-d">No hay tareas en esta categoría</div></div>';return;}
+  cnt.innerHTML=srt.map(t=>{const pr=PR[t.priority]||PR.medium,isDone=t.status==='done',bw=isDone?100:(t.progress||0);return`<div class="ti"><div class="tck ${isDone?'done':''}" style="border-color:${pr.c};${isDone?`background:${pr.c};`:''}" onclick="togTask(${t.id},event)">${isDone?'✓':''}</div><div class="tinf" onclick="openTDet(${t.id})"><div class="tttl ${isDone?'done':''}">${esc(t.title)}</div><div class="tmeta"><span class="ttag" style="background:${pr.c}22;color:${pr.c};">${pr.l}</span>${t.deadline?`<span class="tdue">Vence ${fmtD(t.deadline)}</span>`:''} ${t.project?`<span class="tdue">· ${esc(t.project)}</span>`:''}</div>${bw>0&&!isDone?`<div class="bw" style="margin-top:5px;"><div class="bf" style="width:${bw}%;background:linear-gradient(90deg,${pr.c}88,${pr.c});"></div></div>`:''}</div><div class="tprio" style="background:${pr.c};"></div><button class="tdel" onclick="delTask(${t.id},event)">🗑</button></div>`;}).join('');
 }
 async function renderKanban(tasks){
-const cols=[{l:‘POR HACER’,c:’#c8a820’,f:t=>t.status!==‘done’&&(t.progress||0)<50},{l:‘EN PROGRESO’,c:’#3a8fc9’,f:t=>t.status!==‘done’&&(t.progress||0)>=50},{l:‘HECHO’,c:’#4cc98a’,f:t=>t.status===‘done’}];
-const cnt=document.getElementById(‘k-cols’);if(!cnt)return;
-cnt.innerHTML=cols.map(col=>{const ct=tasks.filter(col.f);return`<div class="kc"><div class="kh"><div class="kd" style="background:${col.c};"></div><div class="kt">${col.l}</div><div class="kn">${ct.length}</div></div>${ct.map(t=>`<div class="kcard" onclick="openTDet(${t.id})"><div class="kct">${esc(t.title)}</div><div class="kb"><div class="kbf" style="width:${t.progress||0}%;background:${col.c};"></div></div><div class="km"><span class="kp">${t.progress||0}%</span><span style="font-size:9px;">${t.project?esc(t.project):’’}</span></div></div>`).join('')}</div>`;}).join(’’);
+  const cols=[{l:'POR HACER',c:'#c8a820',f:t=>t.status!=='done'&&(t.progress||0)<50},{l:'EN PROGRESO',c:'#3a8fc9',f:t=>t.status!=='done'&&(t.progress||0)>=50},{l:'HECHO',c:'#4cc98a',f:t=>t.status==='done'}];
+  const cnt=document.getElementById('k-cols');if(!cnt)return;
+  cnt.innerHTML=cols.map(col=>{const ct=tasks.filter(col.f);return`<div class="kc"><div class="kh"><div class="kd" style="background:${col.c};"></div><div class="kt">${col.l}</div><div class="kn">${ct.length}</div></div>${ct.map(t=>`<div class="kcard" onclick="openTDet(${t.id})"><div class="kct">${esc(t.title)}</div><div class="kb"><div class="kbf" style="width:${t.progress||0}%;background:${col.c};"></div></div><div class="km"><span class="kp">${t.progress||0}%</span><span style="font-size:9px;">${t.project?esc(t.project):''}</span></div></div>`).join('')}</div>`;}).join('');
 }
-async function togTask(id,e){e.stopPropagation();const t=await GO(‘tasks’,id);t.status=t.status===‘done’?‘pending’:‘done’;if(t.status===‘done’)t.progress=100;await GP(‘tasks’,t);await logAct(t.status===‘done’?‘✅’:‘↩️’,`Tarea ${t.status==='done'?'completada':'reabierta'}: ${t.title}`,’’,’#4cc98a’);renderTasks();if(CS===‘home’)renderHome();showToast(`Tarea ${t.status==='done'?'completada ✓':'reabierta'}`);}
-async function delTask(id,e){e.stopPropagation();await GD(‘tasks’,id);renderTasks();if(CS===‘home’)renderHome();showToast(‘Tarea eliminada’);}
-function fTask(f,btn){TF=f;document.querySelectorAll(’#s-tasks .tab’).forEach(t=>t.classList.remove(‘on’));btn.classList.add(‘on’);renderTasks();}
-function toggleKan(){KM=!KM;document.getElementById(‘t-list’).style.display=KM?‘none’:‘block’;document.getElementById(‘t-kan’).style.display=KM?‘block’:‘none’;renderTasks();}
+async function togTask(id,e){e.stopPropagation();const t=await GO('tasks',id);t.status=t.status==='done'?'pending':'done';if(t.status==='done')t.progress=100;await GP('tasks',t);await logAct(t.status==='done'?'✅':'↩️',`Tarea ${t.status==='done'?'completada':'reabierta'}: ${t.title}`,'','#4cc98a');renderTasks();if(CS==='home')renderHome();showToast(`Tarea ${t.status==='done'?'completada ✓':'reabierta'}`);}
+async function delTask(id,e){e.stopPropagation();await GD('tasks',id);renderTasks();if(CS==='home')renderHome();showToast('Tarea eliminada');}
+function fTask(f,btn){TF=f;document.querySelectorAll('#s-tasks .tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on');renderTasks();}
+function toggleKan(){KM=!KM;document.getElementById('t-list').style.display=KM?'none':'block';document.getElementById('t-kan').style.display=KM?'block':'none';renderTasks();}
 
 // ═══ CLIENTS ═══
-let CF=‘all’;
+let CF='all';
 async function renderClients(){
-const cl=await GA(‘clients’);
-const act=cl.filter(c=>c.status===‘active’).length,lds=cl.filter(c=>c.status===‘lead’).length;
-document.getElementById(‘c-sub’).textContent=`${act} activos · ${lds} leads`;
-const srch=(document.getElementById(‘c-search’)||{}).value||’’;
-let fil=CF===‘all’?cl:cl.filter(c=>c.status===CF);
-if(srch)fil=fil.filter(c=>c.name.toLowerCase().includes(srch.toLowerCase())||c.company.toLowerCase().includes(srch.toLowerCase()));
-const cnt=document.getElementById(‘c-list’);
-const sm={active:{c:‘sa’,l:‘Activo’},lead:{c:‘sl’,l:‘Lead’},inactive:{c:‘si’,l:‘Inactivo’}};
-if(!fil.length){cnt.innerHTML=’<div class="emp"><div class="emp-i">👥</div><div class="emp-t">Sin clientes</div><div class="emp-d">Agrega tu primer cliente con +</div></div>’;return;}
-cnt.innerHTML=fil.map(c=>{const s=sm[c.status]||sm.active;return`<div class="citem" onclick="openCDet(${c.id})"><div class="cav" style="background:${c.color||'linear-gradient(135deg,#3a8fc9,#8860c8)'};">${esc(c.avatar||c.name.slice(0,2).toUpperCase())}</div><div><div class="cn">${esc(c.name)}</div><div class="cc">${esc(c.company||'')}</div></div><div class="cst ${s.c}">${s.l}</div><button class="cdel" onclick="delClient(${c.id},event)">🗑</button></div>`;}).join(’’);
+  const cl=await GA('clients');
+  const act=cl.filter(c=>c.status==='active').length,lds=cl.filter(c=>c.status==='lead').length;
+  document.getElementById('c-sub').textContent=`${act} activos · ${lds} leads`;
+  const srch=(document.getElementById('c-search')||{}).value||'';
+  let fil=CF==='all'?cl:cl.filter(c=>c.status===CF);
+  if(srch)fil=fil.filter(c=>c.name.toLowerCase().includes(srch.toLowerCase())||c.company.toLowerCase().includes(srch.toLowerCase()));
+  const cnt=document.getElementById('c-list');
+  const sm={active:{c:'sa',l:'Activo'},lead:{c:'sl',l:'Lead'},inactive:{c:'si',l:'Inactivo'}};
+  if(!fil.length){cnt.innerHTML='<div class="emp"><div class="emp-i">👥</div><div class="emp-t">Sin clientes</div><div class="emp-d">Agrega tu primer cliente con +</div></div>';return;}
+  cnt.innerHTML=fil.map(c=>{const s=sm[c.status]||sm.active;return`<div class="citem" onclick="openCDet(${c.id})"><div class="cav" style="background:${c.color||'linear-gradient(135deg,#3a8fc9,#8860c8)'};">${esc(c.avatar||c.name.slice(0,2).toUpperCase())}</div><div><div class="cn">${esc(c.name)}</div><div class="cc">${esc(c.company||'')}</div></div><div class="cst ${s.c}">${s.l}</div><button class="cdel" onclick="delClient(${c.id},event)">🗑</button></div>`;}).join('');
 }
-async function delClient(id,e){e.stopPropagation();await GD(‘clients’,id);renderClients();showToast(‘Cliente eliminado’);}
-function fClient(f,btn){CF=f;document.querySelectorAll(’#s-clients .tab’).forEach(t=>t.classList.remove(‘on’));btn.classList.add(‘on’);renderClients();}
+async function delClient(id,e){e.stopPropagation();await GD('clients',id);renderClients();showToast('Cliente eliminado');}
+function fClient(f,btn){CF=f;document.querySelectorAll('#s-clients .tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on');renderClients();}
 
 // ═══ FINANCE ═══
-let FT=‘inv’;
+let FT='inv';
 async function renderFin(){
-const[invs,exps]=await Promise.all([GA(‘invoices’),GA(‘expenses’)]);
+  const[invs,exps]=await Promise.all([GA('invoices'),GA('expenses')]);
 
-// Summary cards: ingresos = facturas pagadas, gastos = todos los gastos
-const rev=invs.filter(i=>i.status===‘paid’).reduce((a,i)=>a+i.amount,0);
-const pending=invs.filter(i=>i.status===‘pending’).reduce((a,i)=>a+i.amount,0);
-const exp=exps.reduce((a,e)=>a+e.amount,0),profit=rev-exp;
-document.getElementById(‘fin-sum’).innerHTML=` <div class="card fcard mint-bg"><div class="fl">Cobrado</div><div class="fv">$${fmtN(rev)}</div><div class="fc" style="color:rgba(26,96,64,.7);">Facturas pagadas</div></div> <div class="card fcard peach-bg"><div class="fl">Gastos</div><div class="fv">$${fmtN(exp)}</div><div class="fc" style="color:rgba(122,56,32,.7);">Total egresos</div></div> <div class="card fcard yel-bg"><div class="fl">Pendiente</div><div class="fv">$${fmtN(pending)}</div><div class="fc" style="color:rgba(106,80,16,.7);">Por cobrar</div></div>`;
+  // Summary cards: ingresos = facturas pagadas, gastos = todos los gastos
+  const rev=invs.filter(i=>i.status==='paid').reduce((a,i)=>a+i.amount,0);
+  const pending=invs.filter(i=>i.status==='pending').reduce((a,i)=>a+i.amount,0);
+  const exp=exps.reduce((a,e)=>a+e.amount,0),profit=rev-exp;
+  document.getElementById('fin-sum').innerHTML=`
+    <div class="card fcard mint-bg"><div class="fl">Cobrado</div><div class="fv">$${fmtN(rev)}</div><div class="fc" style="color:rgba(26,96,64,.7);">Facturas pagadas</div></div>
+    <div class="card fcard peach-bg"><div class="fl">Gastos</div><div class="fv">$${fmtN(exp)}</div><div class="fc" style="color:rgba(122,56,32,.7);">Total egresos</div></div>
+    <div class="card fcard yel-bg"><div class="fl">Pendiente</div><div class="fv">$${fmtN(pending)}</div><div class="fc" style="color:rgba(106,80,16,.7);">Por cobrar</div></div>`;
 
-// Chart: last 6 months, use invoice DATE (not just paid) so any new invoice shows up
-const MLBL=[‘Ene’,‘Feb’,‘Mar’,‘Abr’,‘May’,‘Jun’,‘Jul’,‘Ago’,‘Sep’,‘Oct’,‘Nov’,‘Dic’];
-const now=new Date();
-const months=[];
-for(let i=5;i>=0;i–){
-const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-months.push({year:d.getFullYear(),month:d.getMonth(),label:MLBL[d.getMonth()]});
-}
+  // Chart: last 6 months, use invoice DATE (not just paid) so any new invoice shows up
+  const MLBL=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const now=new Date();
+  const months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({year:d.getFullYear(),month:d.getMonth(),label:MLBL[d.getMonth()]});
+  }
 
-// Helper: parse date string safely (avoid timezone shifting)
-function parseDateMonth(ds){
-if(!ds)return{y:-1,m:-1};
-const parts=ds.split(’-’);
-return{y:parseInt(parts[0]),m:parseInt(parts[1])-1};
-}
+  // Helper: parse date string safely (avoid timezone shifting)
+  function parseDateMonth(ds){
+    if(!ds)return{y:-1,m:-1};
+    const parts=ds.split('-');
+    return{y:parseInt(parts[0]),m:parseInt(parts[1])-1};
+  }
 
-// Invoices by emission date (ALL invoices, color by status)
-const invByMonth=months.map(m=>({
-paid:invs.filter(i=>{const p=parseDateMonth(i.date);return p.y===m.year&&p.m===m.month&&i.status===‘paid’;}).reduce((a,i)=>a+i.amount,0),
-total:invs.filter(i=>{const p=parseDateMonth(i.date);return p.y===m.year&&p.m===m.month;}).reduce((a,i)=>a+i.amount,0),
-}));
-const expByMonth=months.map(m=>exps.filter(e=>{const p=parseDateMonth(e.date);return p.y===m.year&&p.m===m.month;}).reduce((a,e)=>a+e.amount,0));
+  // Invoices by emission date (ALL invoices, color by status)
+  const invByMonth=months.map(m=>({
+    paid:invs.filter(i=>{const p=parseDateMonth(i.date);return p.y===m.year&&p.m===m.month&&i.status==='paid';}).reduce((a,i)=>a+i.amount,0),
+    total:invs.filter(i=>{const p=parseDateMonth(i.date);return p.y===m.year&&p.m===m.month;}).reduce((a,i)=>a+i.amount,0),
+  }));
+  const expByMonth=months.map(m=>exps.filter(e=>{const p=parseDateMonth(e.date);return p.y===m.year&&p.m===m.month;}).reduce((a,e)=>a+e.amount,0));
 
-const mx=Math.max(…invByMonth.map(x=>x.total),…expByMonth,1);
+  const mx=Math.max(...invByMonth.map(x=>x.total),...expByMonth,1);
 
-document.getElementById(‘fin-ch’).innerHTML=months.map((m,i)=>{
-const isLast=i===5;
-const inv=invByMonth[i];
-const totalH=Math.max(Math.round(inv.total/mx*72),inv.total>0?4:0);
-const paidH=Math.max(Math.round(inv.paid/mx*72),inv.paid>0?3:0);
-const eH=Math.max(Math.round(expByMonth[i]/mx*72),expByMonth[i]>0?4:0);
-const invColor=isLast?‘var(–bd)’:’#90c8f0’;
-const expColor=isLast?‘var(–pd)’:’#fcc0a0’;
-return`<div class="bcc" title="Facturas: $${fmtN(inv.total)} | Gastos: $${fmtN(expByMonth[i])}"> <div style="display:flex;gap:2px;align-items:flex-end;width:100%;justify-content:center;"> <div style="position:relative;width:45%;height:${totalH}px;"> <div class="bcb" style="position:absolute;bottom:0;left:0;right:0;height:100%;background:${invColor};opacity:${totalH===0?0.15:0.35};border-radius:7px 7px 4px 4px;"></div> <div class="bcb" style="position:absolute;bottom:0;left:0;right:0;height:${paidH}px;background:${invColor};${isLast?'box-shadow:0 2px 8px rgba(58,143,201,.3);':''}border-radius:7px 7px 4px 4px;"></div> </div> <div class="bcb" style="height:${eH}px;width:45%;background:${expColor};opacity:${eH===0?0.15:1};"></div> </div> <div class="bcl" style="${isLast?'font-weight:800;color:var(--tx);':''}">${m.label}</div> </div>`;
-}).join(’’);
+  document.getElementById('fin-ch').innerHTML=months.map((m,i)=>{
+    const isLast=i===5;
+    const inv=invByMonth[i];
+    const totalH=Math.max(Math.round(inv.total/mx*72),inv.total>0?4:0);
+    const paidH=Math.max(Math.round(inv.paid/mx*72),inv.paid>0?3:0);
+    const eH=Math.max(Math.round(expByMonth[i]/mx*72),expByMonth[i]>0?4:0);
+    const invColor=isLast?'var(--bd)':'#90c8f0';
+    const expColor=isLast?'var(--pd)':'#fcc0a0';
+    return`<div class="bcc" title="Facturas: $${fmtN(inv.total)} | Gastos: $${fmtN(expByMonth[i])}">
+      <div style="display:flex;gap:2px;align-items:flex-end;width:100%;justify-content:center;">
+        <div style="position:relative;width:45%;height:${totalH}px;">
+          <div class="bcb" style="position:absolute;bottom:0;left:0;right:0;height:100%;background:${invColor};opacity:${totalH===0?0.15:0.35};border-radius:7px 7px 4px 4px;"></div>
+          <div class="bcb" style="position:absolute;bottom:0;left:0;right:0;height:${paidH}px;background:${invColor};${isLast?'box-shadow:0 2px 8px rgba(58,143,201,.3);':''}border-radius:7px 7px 4px 4px;"></div>
+        </div>
+        <div class="bcb" style="height:${eH}px;width:45%;background:${expColor};opacity:${eH===0?0.15:1};"></div>
+      </div>
+      <div class="bcl" style="${isLast?'font-weight:800;color:var(--tx);':''}">${m.label}</div>
+    </div>`;
+  }).join('');
 
-// Update chart legend to clarify
-const leg=document.querySelector(’#s-finance .card.chc > div:last-child’);
-if(leg)leg.innerHTML=` <div style="display:flex;align-items:center;gap:5px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--bd);"></div><span style="font-size:9px;font-weight:700;color:var(--tll);">Facturado (oscuro=cobrado)</span></div> <div style="display:flex;align-items:center;gap:5px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--pd);"></div><span style="font-size:9px;font-weight:700;color:var(--tll);">Gastos</span></div>`;
+  // Update chart legend to clarify
+  const leg=document.querySelector('#s-finance .card.chc > div:last-child');
+  if(leg)leg.innerHTML=`
+    <div style="display:flex;align-items:center;gap:5px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--bd);"></div><span style="font-size:9px;font-weight:700;color:var(--tll);">Facturado (oscuro=cobrado)</span></div>
+    <div style="display:flex;align-items:center;gap:5px;"><div style="width:9px;height:9px;border-radius:3px;background:var(--pd);"></div><span style="font-size:9px;font-weight:700;color:var(--tll);">Gastos</span></div>`;
 
-renderFinList();
+  renderFinList();
 }
 async function renderFinList(){
-if(FT===‘inv’){
-const invs=await GA(‘invoices’);
-document.getElementById(‘fin-lb’).textContent=‘Facturas’;
-const sm={paid:{c:‘spaid’,l:‘Pagado’},pending:{c:‘spend’,l:‘Pendiente’},overdue:{c:‘sover’,l:‘Vencido’}};
-const clr={paid:‘rgba(76,201,138,.18)’,pending:‘rgba(232,196,80,.2)’,overdue:‘rgba(240,80,80,.12)’};
-document.getElementById(‘fin-list’).innerHTML=!invs.length?’<div class="emp"><div class="emp-i">📄</div><div class="emp-t">Sin facturas</div><div class="emp-d">Crea tu primera factura con +</div></div>’:invs.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(inv=>{const s=sm[inv.status]||sm.pending;const docSvg=’<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>’;const printSvg=’<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>’;return`<div class="iitem"><div class="iico" style="background:${clr[inv.status]||clr.pending};color:${inv.status==='paid'?'#1a8050':inv.status==='overdue'?'#b03030':'#9a6010'};">${docSvg}</div><div class="iin" onclick="openInvDet(${inv.id})" style="cursor:pointer;"><div class="inm" style="color:var(--bd);">${esc(inv.client)}</div><div class="idt">${esc(inv.number)} · ${fmtD(inv.date)}</div></div><div class="irt"><div class="iamt" style="color:${inv.status==='paid'?'#1a8050':inv.status==='overdue'?'#b03030':'var(--tx)'};">$${fmtN(inv.amount)}</div><span class="ist ${s.c}">${s.l}</span></div><button class="idel" title="Imprimir" onclick="printInvoice(${inv.id})" style="color:var(--bd);opacity:.6;">${printSvg}</button><button class="idel" onclick="delInv(${inv.id})">🗑</button></div>`;}).join(’’);
-}else{
-const exps=await GA(‘expenses’);
-document.getElementById(‘fin-lb’).textContent=‘Gastos’;
-const delSvg=’<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>’;
-document.getElementById(‘fin-list’).innerHTML=!exps.length?’<div class="emp"><div class="emp-i">📊</div><div class="emp-t">Sin gastos</div><div class="emp-d">Registra un gasto con +</div></div>’:exps.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(ex=>`<div class="eitem"><div class="eico" style="background:rgba(248,196,160,.3);font-size:16px;">${ex.icon||'💳'}</div><div class="ein"><div class="enm">${esc(ex.name)}</div><div class="ect">${esc(ex.category)} · ${fmtD(ex.date)}</div></div><div class="eamt">-$${fmtN(ex.amount)}</div><button class="edel" onclick="delExp(${ex.id})" style="color:#c03030;">${delSvg}</button></div>`).join(’’);
+  if(FT==='inv'){
+    const invs=await GA('invoices');
+    document.getElementById('fin-lb').textContent='Facturas';
+    const sm={paid:{c:'spaid',l:'Pagado'},pending:{c:'spend',l:'Pendiente'},overdue:{c:'sover',l:'Vencido'}};
+    const clr={paid:'rgba(76,201,138,.18)',pending:'rgba(232,196,80,.2)',overdue:'rgba(240,80,80,.12)'};
+    document.getElementById('fin-list').innerHTML=!invs.length?'<div class="emp"><div class="emp-i">📄</div><div class="emp-t">Sin facturas</div><div class="emp-d">Crea tu primera factura con +</div></div>':invs.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(inv=>{const s=sm[inv.status]||sm.pending;const docSvg='<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>';const printSvg='<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>';return`<div class="iitem"><div class="iico" style="background:${clr[inv.status]||clr.pending};color:${inv.status==='paid'?'#1a8050':inv.status==='overdue'?'#b03030':'#9a6010'};">${docSvg}</div><div class="iin" onclick="openInvDet(${inv.id})" style="cursor:pointer;"><div class="inm" style="color:var(--bd);">${esc(inv.client)}</div><div class="idt">${esc(inv.number)} · ${fmtD(inv.date)}</div></div><div class="irt"><div class="iamt" style="color:${inv.status==='paid'?'#1a8050':inv.status==='overdue'?'#b03030':'var(--tx)'};">$${fmtN(inv.amount)}</div><span class="ist ${s.c}">${s.l}</span></div><button class="idel" title="Imprimir" onclick="printInvoice(${inv.id})" style="color:var(--bd);opacity:.6;">${printSvg}</button><button class="idel" onclick="delInv(${inv.id})">🗑</button></div>`;}).join('');
+  }else{
+    const exps=await GA('expenses');
+    document.getElementById('fin-lb').textContent='Gastos';
+    const delSvg='<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+    document.getElementById('fin-list').innerHTML=!exps.length?'<div class="emp"><div class="emp-i">📊</div><div class="emp-t">Sin gastos</div><div class="emp-d">Registra un gasto con +</div></div>':exps.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(ex=>`<div class="eitem"><div class="eico" style="background:rgba(248,196,160,.3);font-size:16px;">${ex.icon||'💳'}</div><div class="ein"><div class="enm">${esc(ex.name)}</div><div class="ect">${esc(ex.category)} · ${fmtD(ex.date)}</div></div><div class="eamt">-$${fmtN(ex.amount)}</div><button class="edel" onclick="delExp(${ex.id})" style="color:#c03030;">${delSvg}</button></div>`).join('');
+  }
 }
-}
-function setFinTab(t,btn){FT=t;document.querySelectorAll(’#s-finance .tab’).forEach(x=>x.classList.remove(‘on’));btn.classList.add(‘on’);renderFinList();}
+function setFinTab(t,btn){FT=t;document.querySelectorAll('#s-finance .tab').forEach(x=>x.classList.remove('on'));btn.classList.add('on');renderFinList();}
 async function openInvDet(id){
-const inv=await GO(‘invoices’,id);if(!inv)return;
-const sm={paid:{c:‘spaid’,l:‘Pagado’},pending:{c:‘spend’,l:‘Pendiente’},overdue:{c:‘sover’,l:‘Vencido’}};
-const s=sm[inv.status]||sm.pending;
-openModal(’_inv-det’);
-document.getElementById(‘m-ttl’).textContent=‘Detalle Factura’;
-document.getElementById(‘m-body’).innerHTML=` <div style="text-align:center;padding:6px 0 18px;"> <div style="font-size:13px;font-weight:800;color:var(--tll);margin-bottom:4px;">${esc(inv.number)}</div> <div style="font-size:22px;font-weight:900;margin-bottom:4px;">$${fmtN(inv.amount)}</div> <span class="ist ${s.c}" style="font-size:11px;">${s.l}</span> </div> <div class="dr"><span class="dl">Cliente</span><span class="dv">${esc(inv.client)}</span></div> ${inv.desc?`<div class="dr"><span class="dl">Descripción</span><span class="dv" style="font-size:12px;">${esc(inv.desc)}</span></div>`:''} ${inv.date?`<div class="dr"><span class="dl">Emisión</span><span class="dv">${fmtD(inv.date)}</span></div>`:''} ${inv.due?`<div class="dr"><span class="dl">Vencimiento</span><span class="dv">${fmtD(inv.due)}</span></div>`:''} <div style="display:flex;gap:10px;margin-top:18px;"> <button class="bp" style="flex:1;" onclick="printInvoice(${inv.id})">🖨️ Imprimir PDF</button> <button class="bp" style="flex:1;background:linear-gradient(135deg,var(--md),#2a9a6a);" onclick="editInvFromDet(${inv.id})">✏️ Editar</button> </div> <button class="bd" onclick="delInvFromDet(${inv.id})">🗑 Eliminar</button>`;
+  const inv=await GO('invoices',id);if(!inv)return;
+  const sm={paid:{c:'spaid',l:'Pagado'},pending:{c:'spend',l:'Pendiente'},overdue:{c:'sover',l:'Vencido'}};
+  const s=sm[inv.status]||sm.pending;
+  openModal('_inv-det');
+  document.getElementById('m-ttl').textContent='Detalle Factura';
+  document.getElementById('m-body').innerHTML=`
+    <div style="text-align:center;padding:6px 0 18px;">
+      <div style="font-size:13px;font-weight:800;color:var(--tll);margin-bottom:4px;">${esc(inv.number)}</div>
+      <div style="font-size:22px;font-weight:900;margin-bottom:4px;">$${fmtN(inv.amount)}</div>
+      <span class="ist ${s.c}" style="font-size:11px;">${s.l}</span>
+    </div>
+    <div class="dr"><span class="dl">Cliente</span><span class="dv">${esc(inv.client)}</span></div>
+    ${inv.desc?`<div class="dr"><span class="dl">Descripción</span><span class="dv" style="font-size:12px;">${esc(inv.desc)}</span></div>`:''}
+    ${inv.date?`<div class="dr"><span class="dl">Emisión</span><span class="dv">${fmtD(inv.date)}</span></div>`:''}
+    ${inv.due?`<div class="dr"><span class="dl">Vencimiento</span><span class="dv">${fmtD(inv.due)}</span></div>`:''}
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="bp" style="flex:1;" onclick="printInvoice(${inv.id})">🖨️ Imprimir PDF</button>
+      <button class="bp" style="flex:1;background:linear-gradient(135deg,var(--md),#2a9a6a);" onclick="editInvFromDet(${inv.id})">✏️ Editar</button>
+    </div>
+    <button class="bd" onclick="delInvFromDet(${inv.id})">🗑 Eliminar</button>`;
 }
-async function editInvFromDet(id){const inv=await GO(‘invoices’,id);closeM();setTimeout(()=>openModal(‘invoice’,inv),150);}
-async function delInvFromDet(id){await GD(‘invoices’,id);closeM();renderFin();showToast(‘Factura eliminada’);}
-async function delInv(id){await GD(‘invoices’,id);renderFin();showToast(‘Factura eliminada’);}
-async function delExp(id){await GD(‘expenses’,id);renderFin();showToast(‘Gasto eliminado’);}
-function openFinMenu(){openModal(FT===‘inv’?‘invoice’:‘expense’);}
+async function editInvFromDet(id){const inv=await GO('invoices',id);closeM();setTimeout(()=>openModal('invoice',inv),150);}
+async function delInvFromDet(id){await GD('invoices',id);closeM();renderFin();showToast('Factura eliminada');}
+async function delInv(id){await GD('invoices',id);renderFin();showToast('Factura eliminada');}
+async function delExp(id){await GD('expenses',id);renderFin();showToast('Gasto eliminado');}
+function openFinMenu(){openModal(FT==='inv'?'invoice':'expense');}
 
 // ═══ NOTES ═══
-let NF=‘all’;
-const NTC={‘blue-lav’:‘linear-gradient(135deg,rgba(200,230,250,.85),rgba(220,200,252,.8))’,‘mint’:‘linear-gradient(135deg,rgba(196,248,226,.85),rgba(175,240,210,.8))’,‘peach’:‘linear-gradient(135deg,rgba(252,220,192,.85),rgba(248,200,170,.8))’,‘yellow’:‘linear-gradient(135deg,rgba(254,248,196,.85),rgba(252,232,160,.8))’,‘pink’:‘linear-gradient(135deg,rgba(252,216,234,.85),rgba(248,192,220,.8))’,‘lav’:‘linear-gradient(135deg,rgba(228,212,252,.85),rgba(210,190,250,.8))’};
-const NTM={note:‘📝 Nota’,project:‘📁 Proyecto’,checklist:‘✅ Lista’,idea:‘💡 Idea’};
+let NF='all';
+const NTC={'blue-lav':'linear-gradient(135deg,rgba(200,230,250,.85),rgba(220,200,252,.8))','mint':'linear-gradient(135deg,rgba(196,248,226,.85),rgba(175,240,210,.8))','peach':'linear-gradient(135deg,rgba(252,220,192,.85),rgba(248,200,170,.8))','yellow':'linear-gradient(135deg,rgba(254,248,196,.85),rgba(252,232,160,.8))','pink':'linear-gradient(135deg,rgba(252,216,234,.85),rgba(248,192,220,.8))','lav':'linear-gradient(135deg,rgba(228,212,252,.85),rgba(210,190,250,.8))'};
+const NTM={note:'📝 Nota',project:'📁 Proyecto',checklist:'✅ Lista',idea:'💡 Idea'};
 async function renderNotes(){
-const notes=await GA(‘notes’);
-let fil=NF===‘all’?notes:notes.filter(n=>n.type===NF);
-document.getElementById(‘n-sub’).textContent=`${notes.length} nota${notes.length!==1?'s':''}`;
-const cnt=document.getElementById(‘n-grid’);if(!cnt)return;
-if(!fil.length){cnt.innerHTML=’<div class="emp" style="grid-column:1/-1;"><div class="emp-i">📝</div><div class="emp-t">Sin notas</div><div class="emp-d">Crea tu primera nota con +</div></div>’;return;}
-const pinned=fil.filter(n=>n.pinned),rest=fil.filter(n=>!n.pinned);
-cnt.innerHTML=[…pinned,…rest].map(n=>{const bg=NTC[n.color]||NTC[‘blue-lav’],wide=n.pinned||n.type===‘project’;return`<div class="ncard ${wide?'wide':''}" style="background:${bg};" onclick="openNDet(${n.id})">${n.pinned?'<div style="position:absolute;top:11px;left:13px;font-size:14px;opacity:.5;">📌</div>':''}<div class="ntp" style="margin-left:${n.pinned?'22px':'0'}">${NTM[n.type]||'📝 Nota'}</div><div class="ntt">${esc(n.title)}</div><div class="npv">${esc((n.content||'').substring(0,80))}${(n.content||'').length>80?'…':''}</div><div class="ndt">${agoS(n.created)}</div><button class="ndel" onclick="delNote(${n.id},event)">🗑</button></div>`;}).join(’’);
+  const notes=await GA('notes');
+  let fil=NF==='all'?notes:notes.filter(n=>n.type===NF);
+  document.getElementById('n-sub').textContent=`${notes.length} nota${notes.length!==1?'s':''}`;
+  const cnt=document.getElementById('n-grid');if(!cnt)return;
+  if(!fil.length){cnt.innerHTML='<div class="emp" style="grid-column:1/-1;"><div class="emp-i">📝</div><div class="emp-t">Sin notas</div><div class="emp-d">Crea tu primera nota con +</div></div>';return;}
+  const pinned=fil.filter(n=>n.pinned),rest=fil.filter(n=>!n.pinned);
+  cnt.innerHTML=[...pinned,...rest].map(n=>{const bg=NTC[n.color]||NTC['blue-lav'],wide=n.pinned||n.type==='project';return`<div class="ncard ${wide?'wide':''}" style="background:${bg};" onclick="openNDet(${n.id})">${n.pinned?'<div style="position:absolute;top:11px;left:13px;font-size:14px;opacity:.5;">📌</div>':''}<div class="ntp" style="margin-left:${n.pinned?'22px':'0'}">${NTM[n.type]||'📝 Nota'}</div><div class="ntt">${esc(n.title)}</div><div class="npv">${esc((n.content||'').substring(0,80))}${(n.content||'').length>80?'…':''}</div><div class="ndt">${agoS(n.created)}</div><button class="ndel" onclick="delNote(${n.id},event)">🗑</button></div>`;}).join('');
 }
-async function delNote(id,e){e.stopPropagation();await GD(‘notes’,id);renderNotes();showToast(‘Nota eliminada’);}
-function fNote(f,btn){NF=f;document.querySelectorAll(’#s-notes .tab’).forEach(t=>t.classList.remove(‘on’));btn.classList.add(‘on’);renderNotes();}
+async function delNote(id,e){e.stopPropagation();await GD('notes',id);renderNotes();showToast('Nota eliminada');}
+function fNote(f,btn){NF=f;document.querySelectorAll('#s-notes .tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on');renderNotes();}
 
 // ═══ PROFILE ═══
 async function renderProfile(){
-const p=await GO(‘profile’,1);if(!p)return;
-document.getElementById(‘p-av’).textContent=p.initials||‘AB’;
-document.getElementById(‘p-nm’).textContent=p.name;
-document.getElementById(‘p-rl’).textContent=`${p.role} · ${p.company}`;
-document.getElementById(‘home-av’).textContent=p.initials||‘AB’;
-const[tasks,clients,notes,invs]=await Promise.all([GA(‘tasks’),GA(‘clients’),GA(‘notes’),GA(‘invoices’)]);
-document.getElementById(‘p-stats’).innerHTML=`<div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--bd);">${tasks.filter(t=>t.status==='done').length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Tareas Hechas</div></div><div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--md);">${clients.filter(c=>c.status==='active').length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Clientes Activos</div></div><div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--ld);">${notes.length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Notas</div></div><div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--pd);">${invs.filter(i=>i.status==='paid').length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Facturas Cobradas</div></div>`;
+  const p=await GO('profile',1);if(!p)return;
+  document.getElementById('p-av').textContent=p.initials||'AB';
+  document.getElementById('p-nm').textContent=p.name;
+  document.getElementById('p-rl').textContent=`${p.role} · ${p.company}`;
+  document.getElementById('home-av').textContent=p.initials||'AB';
+  const[tasks,clients,notes,invs]=await Promise.all([GA('tasks'),GA('clients'),GA('notes'),GA('invoices')]);
+  document.getElementById('p-stats').innerHTML=`<div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--bd);">${tasks.filter(t=>t.status==='done').length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Tareas Hechas</div></div><div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--md);">${clients.filter(c=>c.status==='active').length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Clientes Activos</div></div><div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--ld);">${notes.length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Notas</div></div><div class="card" style="padding:13px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--pd);">${invs.filter(i=>i.status==='paid').length}</div><div style="font-size:10px;font-weight:700;color:var(--tll);margin-top:2px;">Facturas Cobradas</div></div>`;
 }
-function applyTheme(t){const th={default:{a:’#3a8fc9’,b:’#8860c8’},forest:{a:’#2a9a6a’,b:’#3a8fc9’},sunset:{a:’#e8834a’,b:’#d84880’},purple:{a:’#8860c8’,b:’#d84880’},golden:{a:’#c8a820’,b:’#e8834a’}}[t]||{a:’#3a8fc9’,b:’#8860c8’};document.documentElement.style.setProperty(’–bd’,th.a);document.documentElement.style.setProperty(’–ld’,th.b);document.documentElement.style.setProperty(’–bm’,th.a+‘cc’);showToast(‘Tema aplicado ✨’);}
-function openProfileEdit(){openModal(‘profile-edit’);}
+function applyTheme(t){const th={default:{a:'#3a8fc9',b:'#8860c8'},forest:{a:'#2a9a6a',b:'#3a8fc9'},sunset:{a:'#e8834a',b:'#d84880'},purple:{a:'#8860c8',b:'#d84880'},golden:{a:'#c8a820',b:'#e8834a'}}[t]||{a:'#3a8fc9',b:'#8860c8'};document.documentElement.style.setProperty('--bd',th.a);document.documentElement.style.setProperty('--ld',th.b);document.documentElement.style.setProperty('--bm',th.a+'cc');showToast('Tema aplicado ✨');}
+function openProfileEdit(){openModal('profile-edit');}
 
 // ═══ MODAL FORMS ═══
 let CM2=null,EID=null;
 function openModal(type,data){
-CM2=type;EID=data?data.id:null;
-const titles={task:‘Nueva Tarea’,event:‘Nuevo Evento’,client:‘Nuevo Cliente’,invoice:‘Nueva Factura’,expense:‘Nuevo Gasto’,note:‘Nueva Nota’,‘profile-edit’:‘Editar Perfil’};
-document.getElementById(‘m-ttl’).textContent=EID?titles[type]?.replace(‘Nuevo’,‘Editar’).replace(‘Nueva’,‘Editar’):(titles[type]||‘Nuevo’);
-document.getElementById(‘m-body’).innerHTML=getForm(type,data);
-document.getElementById(‘mo’).classList.add(‘open’);
+  CM2=type;EID=data?data.id:null;
+  const titles={task:'Nueva Tarea',event:'Nuevo Evento',client:'Nuevo Cliente',invoice:'Nueva Factura',expense:'Nuevo Gasto',note:'Nueva Nota','profile-edit':'Editar Perfil'};
+  document.getElementById('m-ttl').textContent=EID?titles[type]?.replace('Nuevo','Editar').replace('Nueva','Editar'):(titles[type]||'Nuevo');
+  document.getElementById('m-body').innerHTML=getForm(type,data);
+  document.getElementById('mo').classList.add('open');
 }
 function getForm(type,d){
-switch(type){
-case’task’:return`<div class="fg"><label class="fl2">Título</label><input class="fi" id="f-ttl" value="${d?esc(d.title):''}" placeholder="Nombre de la tarea"></div><div class="fr"><div class="fg"><label class="fl2">Prioridad</label><select class="fsel" id="f-prio"><option value="high" ${d&&d.priority==='high'?'selected':''}>🔥 Alta</option><option value="medium" ${!d||d.priority==='medium'?'selected':''}>⚡ Media</option><option value="low" ${d&&d.priority==='low'?'selected':''}>📋 Baja</option></select></div><div class="fg"><label class="fl2">Estado</label><select class="fsel" id="f-st"><option value="pending" ${!d||d.status==='pending'?'selected':''}>Pendiente</option><option value="done" ${d&&d.status==='done'?'selected':''}>Completada</option></select></div></div><div class="fr"><div class="fg"><label class="fl2">Fecha límite</label><input class="fi" type="date" id="f-dl" value="${d?d.deadline:''}"></div><div class="fg"><label class="fl2">Progreso %</label><input class="fi" type="number" min="0" max="100" id="f-prog" value="${d?d.progress:0}"></div></div><div class="fg"><label class="fl2">Proyecto</label><input class="fi" id="f-proj" value="${d?esc(d.project||''):''}" placeholder="Nombre del proyecto"></div><button class="bp" onclick="saveTask()">💾 Guardar Tarea</button>`;
-case’event’:return`<div class="fg"><label class="fl2">Título</label><input class="fi" id="f-ttl" value="${d?esc(d.title):''}" placeholder="Nombre del evento"></div><div class="fg"><label class="fl2">Descripción</label><input class="fi" id="f-desc" value="${d?esc(d.desc||''):''}" placeholder="Lugar, participantes…"></div><div class="fr"><div class="fg"><label class="fl2">Fecha</label><input class="fi" type="date" id="f-date" value="${d?d.date:SD}"></div><div class="fg"><label class="fl2">Hora</label><input class="fi" type="time" id="f-time" value="${d?d.time:'09:00'}"></div></div><div class="fr"><div class="fg"><label class="fl2">Duración (min)</label><input class="fi" type="number" id="f-dur" value="${d?d.duration:60}"></div><div class="fg"><label class="fl2">Color</label><select class="fsel" id="f-col"><option value="blue" ${!d||d.color==='blue'?'selected':''}>🔵 Azul</option><option value="mint" ${d&&d.color==='mint'?'selected':''}>🟢 Menta</option><option value="pink" ${d&&d.color==='pink'?'selected':''}>🩷 Rosa</option><option value="yellow" ${d&&d.color==='yellow'?'selected':''}>🟡 Amarillo</option><option value="lav" ${d&&d.color==='lav'?'selected':''}>🟣 Lavanda</option><option value="peach" ${d&&d.color==='peach'?'selected':''}>🟠 Durazno</option></select></div></div><button class="bp" onclick="saveEvent()">💾 Guardar Evento</button>`;
-case’client’:return`<div class="fg"><label class="fl2">Nombre completo</label><input class="fi" id="f-nm" value="${d?esc(d.name):''}" placeholder="Nombre del cliente"></div><div class="fg"><label class="fl2">Empresa</label><input class="fi" id="f-co" value="${d?esc(d.company||''):''}" placeholder="Nombre empresa"></div><div class="fr"><div class="fg"><label class="fl2">Email</label><input class="fi" type="email" id="f-em" value="${d?esc(d.email||''):''}" placeholder="email@empresa.com"></div><div class="fg"><label class="fl2">Teléfono</label><input class="fi" type="tel" id="f-ph" value="${d?esc(d.phone||''):''}" placeholder="+1 555 0000"></div></div><div class="fr"><div class="fg"><label class="fl2">Estado</label><select class="fsel" id="f-st"><option value="active" ${!d||d.status==='active'?'selected':''}>Activo</option><option value="lead" ${d&&d.status==='lead'?'selected':''}>Lead</option><option value="inactive" ${d&&d.status==='inactive'?'selected':''}>Inactivo</option></select></div><div class="fg"><label class="fl2">Tags</label><input class="fi" id="f-tags" value="${d?esc(d.tags||''):''}" placeholder="VIP, Tech…"></div></div><div class="fg"><label class="fl2">Notas</label><textarea class="fta" id="f-notes" placeholder="Notas sobre el cliente…">${d?esc(d.notes||''):''}</textarea></div><button class="bp" onclick="saveClient()">💾 Guardar Cliente</button>`;
-case’invoice’:return`<div class="fg"><label class="fl2">Cliente</label><input class="fi" id="f-cl" value="${d?esc(d.client):''}" placeholder="Nombre del cliente"></div><div class="fr"><div class="fg"><label class="fl2">Número</label><input class="fi" id="f-num" value="${d?esc(d.number):'INV-'+(Date.now()+'').slice(-4)}" placeholder="INV-0001"></div><div class="fg"><label class="fl2">Monto ($)</label><input class="fi" type="number" id="f-amt" value="${d?d.amount:''}" placeholder="0.00"></div></div><div class="fr"><div class="fg"><label class="fl2">Fecha</label><input class="fi" type="date" id="f-date" value="${d?d.date:new Date().toISOString().split('T')[0]}"></div><div class="fg"><label class="fl2">Vencimiento</label><input class="fi" type="date" id="f-due" value="${d?d.due:''}"></div></div><div class="fg"><label class="fl2">Estado</label><select class="fsel" id="f-st"><option value="pending" ${!d||d.status==='pending'?'selected':''}>Pendiente</option><option value="paid" ${d&&d.status==='paid'?'selected':''}>Pagado</option><option value="overdue" ${d&&d.status==='overdue'?'selected':''}>Vencido</option></select></div><div class="fg"><label class="fl2">Descripción</label><input class="fi" id="f-desc" value="${d?esc(d.desc||''):''}" placeholder="Descripción del servicio"></div><button class="bp" onclick="saveInvoice()">💾 Guardar Factura</button>`;
-case’expense’:return`<div class="fg"><label class="fl2">Concepto</label><input class="fi" id="f-nm" value="${d?esc(d.name):''}" placeholder="Nombre del gasto"></div><div class="fr"><div class="fg"><label class="fl2">Monto ($)</label><input class="fi" type="number" id="f-amt" value="${d?d.amount:''}" placeholder="0.00"></div><div class="fg"><label class="fl2">Fecha</label><input class="fi" type="date" id="f-date" value="${d?d.date:new Date().toISOString().split('T')[0]}"></div></div><div class="fr"><div class="fg"><label class="fl2">Categoría</label><select class="fsel" id="f-cat">${['Software','Oficina','Marketing','Transporte','Alimentación','Servicios','Otro'].map(c=>`<option value=”${c}” ${d&&d.category===c?‘selected’:’’}>${c}</option>`).join('')}</select></div><div class="fg"><label class="fl2">Ícono</label><input class="fi" id="f-ico" value="${d?d.icon:'💳'}" placeholder="💳" style="font-size:18px;"></div></div><button class="bp" onclick="saveExpense()">💾 Guardar Gasto</button>`;
-case’note’:return`<div class="fg"><label class="fl2">Título</label><input class="fi" id="f-ttl" value="${d?esc(d.title):''}" placeholder="Título de la nota"></div><div class="fg"><label class="fl2">Contenido</label><textarea class="fta" id="f-cont" style="min-height:120px;" placeholder="Escribe aquí…">${d?esc(d.content||''):''}</textarea></div><div class="fr"><div class="fg"><label class="fl2">Tipo</label><select class="fsel" id="f-type"><option value="note" ${!d||d.type==='note'?'selected':''}>📝 Nota</option><option value="project" ${d&&d.type==='project'?'selected':''}>📁 Proyecto</option><option value="checklist" ${d&&d.type==='checklist'?'selected':''}>✅ Lista</option><option value="idea" ${d&&d.type==='idea'?'selected':''}>💡 Idea</option></select></div><div class="fg"><label class="fl2">Color</label><select class="fsel" id="f-col"><option value="blue-lav">🔵 Azul</option><option value="mint">🟢 Menta</option><option value="peach">🟠 Durazno</option><option value="yellow">🟡 Amarillo</option><option value="pink">🩷 Rosa</option><option value="lav">🟣 Lavanda</option></select></div></div><div class="fg" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="f-pin" ${d&&d.pinned?'checked':''} style="width:16px;height:16px;"><label class="fl2" style="margin:0;" for="f-pin">📌 Fijar nota</label></div><button class="bp" onclick="saveNote()">💾 Guardar Nota</button>`;
-case’profile-edit’:return`<div class="fg"><label class="fl2">Nombre</label><input class="fi" id="f-nm" placeholder="Tu nombre"></div><div class="fg"><label class="fl2">Cargo</label><input class="fi" id="f-rl" placeholder="Tu cargo"></div><div class="fg"><label class="fl2">Empresa</label><input class="fi" id="f-co" placeholder="Nombre empresa"></div><div class="fg"><label class="fl2">Email</label><input class="fi" type="email" id="f-em" placeholder="tu@email.com"></div><button class="bp" onclick="saveProfile()">💾 Guardar Perfil</button>`;
-case’task-det’:return d?`<div style="font-size:15px;font-weight:800;margin-bottom:14px;">${esc(d.title)}</div><div class="dr"><span class="dl">Prioridad</span><span class="dv" style="color:${PR[d.priority]?.c||'#888'};">${PR[d.priority]?.l||d.priority}</span></div><div class="dr"><span class="dl">Estado</span><span class="dv">${d.status==='done'?'✅ Completada':'⏳ Pendiente'}</span></div>${d.deadline?`<div class="dr"><span class="dl">Vencimiento</span><span class="dv">${fmtD(d.deadline)}</span></div>`:''} ${d.project?`<div class="dr"><span class="dl">Proyecto</span><span class="dv">${esc(d.project)}</span></div>`:''}<div class="dr"><span class="dl">Progreso</span><span class="dv">${d.progress||0}%</span></div><div class="bw" style="height:10px;margin:14px 0;"><div class="bf" style="width:${d.progress||0}%;background:linear-gradient(90deg,${PR[d.priority]?.c||'#888'}88,${PR[d.priority]?.c||'#888'});"></div></div><button class="bp" onclick="editTask(${d.id})">✏️ Editar</button><button class="bd" onclick="delTaskDet(${d.id})">🗑 Eliminar</button>`:’’;
-case’client-det’:return d?`<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;"><div class="cav" style="background:${d.color||'#5fa8d3'};width:52px;height:52px;font-size:18px;">${esc(d.avatar||'?')}</div><div><div style="font-size:16px;font-weight:800;">${esc(d.name)}</div><div style="font-size:12px;color:var(--tll);font-weight:600;">${esc(d.company||'')}</div></div></div><div class="dr"><span class="dl">Estado</span><span class="dv">${d.status}</span></div>${d.email?`<div class="dr"><span class="dl">Email</span><span class="dv" style="font-size:12px;">${esc(d.email)}</span></div>`:''} ${d.phone?`<div class="dr"><span class="dl">Teléfono</span><span class="dv">${esc(d.phone)}</span></div>`:''} ${d.tags?`<div class="dr"><span class="dl">Tags</span><span class="dv">${esc(d.tags)}</span></div>`:''} ${d.notes?`<div style="margin-top:10px;padding:12px;background:rgba(160,185,210,.12);border-radius:12px;font-size:12px;font-weight:600;line-height:1.5;">${esc(d.notes)}</div>`:''}<div style="margin-top:14px;"></div><button class="bp" onclick="editClient(${d.id})">✏️ Editar</button><button class="bd" onclick="delClientDet(${d.id})">🗑 Eliminar</button>`:’’;
-case’event-det’:return d?`<div style="font-size:15px;font-weight:800;margin-bottom:14px;">${esc(d.title)}</div><div class="dr"><span class="dl">Fecha</span><span class="dv">${fmtD(d.date)}</span></div><div class="dr"><span class="dl">Hora</span><span class="dv">${d.time}</span></div><div class="dr"><span class="dl">Duración</span><span class="dv">${d.duration} minutos</span></div>${d.desc?`<div class="dr"><span class="dl">Descripción</span><span class="dv" style="font-size:12px;">${esc(d.desc)}</span></div>`:''}<div style="margin-top:14px;"></div><button class="bp" onclick="editEvent(${d.id})">✏️ Editar</button><button class="bd" onclick="delEvDet(${d.id})">🗑 Eliminar</button>`:’’;
-case’note-det’:return d?`<div style="background:${NTC[d.color]||NTC['blue-lav']};border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.9);"><div style="font-size:9px;font-weight:800;text-transform:uppercase;opacity:.6;margin-bottom:7px;">${NTM[d.type]||'📝 Nota'}</div><div style="font-size:15px;font-weight:800;margin-bottom:8px;">${esc(d.title)}</div><div style="font-size:12px;font-weight:600;line-height:1.6;white-space:pre-wrap;">${esc(d.content||'')}</div><div style="font-size:9px;opacity:.45;font-weight:700;margin-top:12px;">${agoS(d.created)}</div></div><button class="bp" onclick="editNote(${d.id})">✏️ Editar</button><button class="bd" onclick="delNoteDet(${d.id})">🗑 Eliminar</button>`:’’;
-default:return’<p style="color:var(--tll);font-size:13px;padding:20px 0;">Formulario no disponible</p>’;
+  switch(type){
+    case'task':return`<div class="fg"><label class="fl2">Título</label><input class="fi" id="f-ttl" value="${d?esc(d.title):''}" placeholder="Nombre de la tarea"></div><div class="fr"><div class="fg"><label class="fl2">Prioridad</label><select class="fsel" id="f-prio"><option value="high" ${d&&d.priority==='high'?'selected':''}>🔥 Alta</option><option value="medium" ${!d||d.priority==='medium'?'selected':''}>⚡ Media</option><option value="low" ${d&&d.priority==='low'?'selected':''}>📋 Baja</option></select></div><div class="fg"><label class="fl2">Estado</label><select class="fsel" id="f-st"><option value="pending" ${!d||d.status==='pending'?'selected':''}>Pendiente</option><option value="done" ${d&&d.status==='done'?'selected':''}>Completada</option></select></div></div><div class="fr"><div class="fg"><label class="fl2">Fecha límite</label><input class="fi" type="date" id="f-dl" value="${d?d.deadline:''}"></div><div class="fg"><label class="fl2">Progreso %</label><input class="fi" type="number" min="0" max="100" id="f-prog" value="${d?d.progress:0}"></div></div><div class="fg"><label class="fl2">Proyecto</label><input class="fi" id="f-proj" value="${d?esc(d.project||''):''}" placeholder="Nombre del proyecto"></div><button class="bp" onclick="saveTask()">💾 Guardar Tarea</button>`;
+    case'event':return`<div class="fg"><label class="fl2">Título</label><input class="fi" id="f-ttl" value="${d?esc(d.title):''}" placeholder="Nombre del evento"></div><div class="fg"><label class="fl2">Descripción</label><input class="fi" id="f-desc" value="${d?esc(d.desc||''):''}" placeholder="Lugar, participantes…"></div><div class="fr"><div class="fg"><label class="fl2">Fecha</label><input class="fi" type="date" id="f-date" value="${d?d.date:SD}"></div><div class="fg"><label class="fl2">Hora</label><input class="fi" type="time" id="f-time" value="${d?d.time:'09:00'}"></div></div><div class="fr"><div class="fg"><label class="fl2">Duración (min)</label><input class="fi" type="number" id="f-dur" value="${d?d.duration:60}"></div><div class="fg"><label class="fl2">Color</label><select class="fsel" id="f-col"><option value="blue" ${!d||d.color==='blue'?'selected':''}>🔵 Azul</option><option value="mint" ${d&&d.color==='mint'?'selected':''}>🟢 Menta</option><option value="pink" ${d&&d.color==='pink'?'selected':''}>🩷 Rosa</option><option value="yellow" ${d&&d.color==='yellow'?'selected':''}>🟡 Amarillo</option><option value="lav" ${d&&d.color==='lav'?'selected':''}>🟣 Lavanda</option><option value="peach" ${d&&d.color==='peach'?'selected':''}>🟠 Durazno</option></select></div></div><button class="bp" onclick="saveEvent()">💾 Guardar Evento</button>`;
+    case'client':return`<div class="fg"><label class="fl2">Nombre completo</label><input class="fi" id="f-nm" value="${d?esc(d.name):''}" placeholder="Nombre del cliente"></div><div class="fg"><label class="fl2">Empresa</label><input class="fi" id="f-co" value="${d?esc(d.company||''):''}" placeholder="Nombre empresa"></div><div class="fr"><div class="fg"><label class="fl2">Email</label><input class="fi" type="email" id="f-em" value="${d?esc(d.email||''):''}" placeholder="email@empresa.com"></div><div class="fg"><label class="fl2">Teléfono</label><input class="fi" type="tel" id="f-ph" value="${d?esc(d.phone||''):''}" placeholder="+1 555 0000"></div></div><div class="fr"><div class="fg"><label class="fl2">Estado</label><select class="fsel" id="f-st"><option value="active" ${!d||d.status==='active'?'selected':''}>Activo</option><option value="lead" ${d&&d.status==='lead'?'selected':''}>Lead</option><option value="inactive" ${d&&d.status==='inactive'?'selected':''}>Inactivo</option></select></div><div class="fg"><label class="fl2">Tags</label><input class="fi" id="f-tags" value="${d?esc(d.tags||''):''}" placeholder="VIP, Tech…"></div></div><div class="fg"><label class="fl2">Notas</label><textarea class="fta" id="f-notes" placeholder="Notas sobre el cliente…">${d?esc(d.notes||''):''}</textarea></div><button class="bp" onclick="saveClient()">💾 Guardar Cliente</button>`;
+
+```
+case'invoice':return`<div class="fg"><label class="fl2">Cliente</label><input class="fi" id="f-cl" value="${d?esc(d.client):''}" placeholder="Nombre del cliente"></div><div class="fr"><div class="fg"><label class="fl2">Número</label><input class="fi" id="f-num" value="${d?esc(d.number):'INV-'+(Date.now()+'').slice(-4)}" placeholder="INV-0001"></div><div class="fg"><label class="fl2">Monto ($)</label><input class="fi" type="number" id="f-amt" value="${d?d.amount:''}" placeholder="0.00"></div></div><div class="fr"><div class="fg"><label class="fl2">Fecha</label><input class="fi" type="date" id="f-date" value="${d?d.date:new Date().toISOString().split('T')[0]}"></div><div class="fg"><label class="fl2">Vencimiento</label><input class="fi" type="date" id="f-due" value="${d?d.due:''}"></div></div><div class="fg"><label class="fl2">Estado</label><select class="fsel" id="f-st"><option value="pending" ${!d||d.status==='pending'?'selected':''}>Pendiente</option><option value="paid" ${d&&d.status==='paid'?'selected':''}>Pagado</option><option value="overdue" ${d&&d.status==='overdue'?'selected':''}>Vencido</option></select></div><div class="fg"><label class="fl2">Descripción</label><input class="fi" id="f-desc" value="${d?esc(d.desc||''):''}" placeholder="Descripción del servicio"></div><button class="bp" onclick="saveInvoice()">💾 Guardar Factura</button>`;
+case'expense':return`<div class="fg"><label class="fl2">Concepto</label><input class="fi" id="f-nm" value="${d?esc(d.name):''}" placeholder="Nombre del gasto"></div><div class="fr"><div class="fg"><label class="fl2">Monto ($)</label><input class="fi" type="number" id="f-amt" value="${d?d.amount:''}" placeholder="0.00"></div><div class="fg"><label class="fl2">Fecha</label><input class="fi" type="date" id="f-date" value="${d?d.date:new Date().toISOString().split('T')[0]}"></div></div><div class="fr"><div class="fg"><label class="fl2">Categoría</label><select class="fsel" id="f-cat">${['Software','Oficina','Marketing','Transporte','Alimentación','Servicios','Otro'].map(c=>`<option value="${c}" ${d&&d.category===c?'selected':''}>${c}</option>`).join('')}</select></div><div class="fg"><label class="fl2">Ícono</label><input class="fi" id="f-ico" value="${d?d.icon:'💳'}" placeholder="💳" style="font-size:18px;"></div></div><button class="bp" onclick="saveExpense()">💾 Guardar Gasto</button>`;
+case'note':return`<div class="fg"><label class="fl2">Título</label><input class="fi" id="f-ttl" value="${d?esc(d.title):''}" placeholder="Título de la nota"></div><div class="fg"><label class="fl2">Contenido</label><textarea class="fta" id="f-cont" style="min-height:120px;" placeholder="Escribe aquí…">${d?esc(d.content||''):''}</textarea></div><div class="fr"><div class="fg"><label class="fl2">Tipo</label><select class="fsel" id="f-type"><option value="note" ${!d||d.type==='note'?'selected':''}>📝 Nota</option><option value="project" ${d&&d.type==='project'?'selected':''}>📁 Proyecto</option><option value="checklist" ${d&&d.type==='checklist'?'selected':''}>✅ Lista</option><option value="idea" ${d&&d.type==='idea'?'selected':''}>💡 Idea</option></select></div><div class="fg"><label class="fl2">Color</label><select class="fsel" id="f-col"><option value="blue-lav">🔵 Azul</option><option value="mint">🟢 Menta</option><option value="peach">🟠 Durazno</option><option value="yellow">🟡 Amarillo</option><option value="pink">🩷 Rosa</option><option value="lav">🟣 Lavanda</option></select></div></div><div class="fg" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="f-pin" ${d&&d.pinned?'checked':''} style="width:16px;height:16px;"><label class="fl2" style="margin:0;" for="f-pin">📌 Fijar nota</label></div><button class="bp" onclick="saveNote()">💾 Guardar Nota</button>`;
+case'profile-edit':return`<div class="fg"><label class="fl2">Nombre</label><input class="fi" id="f-nm" placeholder="Tu nombre"></div><div class="fg"><label class="fl2">Cargo</label><input class="fi" id="f-rl" placeholder="Tu cargo"></div><div class="fg"><label class="fl2">Empresa</label><input class="fi" id="f-co" placeholder="Nombre empresa"></div><div class="fg"><label class="fl2">Email</label><input class="fi" type="email" id="f-em" placeholder="tu@email.com"></div><button class="bp" onclick="saveProfile()">💾 Guardar Perfil</button>`;
+case'task-det':return d?`<div style="font-size:15px;font-weight:800;margin-bottom:14px;">${esc(d.title)}</div><div class="dr"><span class="dl">Prioridad</span><span class="dv" style="color:${PR[d.priority]?.c||'#888'};">${PR[d.priority]?.l||d.priority}</span></div><div class="dr"><span class="dl">Estado</span><span class="dv">${d.status==='done'?'✅ Completada':'⏳ Pendiente'}</span></div>${d.deadline?`<div class="dr"><span class="dl">Vencimiento</span><span class="dv">${fmtD(d.deadline)}</span></div>`:''} ${d.project?`<div class="dr"><span class="dl">Proyecto</span><span class="dv">${esc(d.project)}</span></div>`:''}<div class="dr"><span class="dl">Progreso</span><span class="dv">${d.progress||0}%</span></div><div class="bw" style="height:10px;margin:14px 0;"><div class="bf" style="width:${d.progress||0}%;background:linear-gradient(90deg,${PR[d.priority]?.c||'#888'}88,${PR[d.priority]?.c||'#888'});"></div></div><button class="bp" onclick="editTask(${d.id})">✏️ Editar</button><button class="bd" onclick="delTaskDet(${d.id})">🗑 Eliminar</button>`:'';
+case'client-det':return d?`<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;"><div class="cav" style="background:${d.color||'#5fa8d3'};width:52px;height:52px;font-size:18px;">${esc(d.avatar||'?')}</div><div><div style="font-size:16px;font-weight:800;">${esc(d.name)}</div><div style="font-size:12px;color:var(--tll);font-weight:600;">${esc(d.company||'')}</div></div></div><div class="dr"><span class="dl">Estado</span><span class="dv">${d.status}</span></div>${d.email?`<div class="dr"><span class="dl">Email</span><span class="dv" style="font-size:12px;">${esc(d.email)}</span></div>`:''} ${d.phone?`<div class="dr"><span class="dl">Teléfono</span><span class="dv">${esc(d.phone)}</span></div>`:''} ${d.tags?`<div class="dr"><span class="dl">Tags</span><span class="dv">${esc(d.tags)}</span></div>`:''} ${d.notes?`<div style="margin-top:10px;padding:12px;background:rgba(160,185,210,.12);border-radius:12px;font-size:12px;font-weight:600;line-height:1.5;">${esc(d.notes)}</div>`:''}<div style="margin-top:14px;"></div><button class="bp" onclick="editClient(${d.id})">✏️ Editar</button><button class="bd" onclick="delClientDet(${d.id})">🗑 Eliminar</button>`:'';
+case'event-det':return d?`<div style="font-size:15px;font-weight:800;margin-bottom:14px;">${esc(d.title)}</div><div class="dr"><span class="dl">Fecha</span><span class="dv">${fmtD(d.date)}</span></div><div class="dr"><span class="dl">Hora</span><span class="dv">${d.time}</span></div><div class="dr"><span class="dl">Duración</span><span class="dv">${d.duration} minutos</span></div>${d.desc?`<div class="dr"><span class="dl">Descripción</span><span class="dv" style="font-size:12px;">${esc(d.desc)}</span></div>`:''}<div style="margin-top:14px;"></div><button class="bp" onclick="editEvent(${d.id})">✏️ Editar</button><button class="bd" onclick="delEvDet(${d.id})">🗑 Eliminar</button>`:'';
+case'note-det':return d?`<div style="background:${NTC[d.color]||NTC['blue-lav']};border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.9);"><div style="font-size:9px;font-weight:800;text-transform:uppercase;opacity:.6;margin-bottom:7px;">${NTM[d.type]||'📝 Nota'}</div><div style="font-size:15px;font-weight:800;margin-bottom:8px;">${esc(d.title)}</div><div style="font-size:12px;font-weight:600;line-height:1.6;white-space:pre-wrap;">${esc(d.content||'')}</div><div style="font-size:9px;opacity:.45;font-weight:700;margin-top:12px;">${agoS(d.created)}</div></div><button class="bp" onclick="editNote(${d.id})">✏️ Editar</button><button class="bd" onclick="delNoteDet(${d.id})">🗑 Eliminar</button>`:'';
+default:return'<p style="color:var(--tll);font-size:13px;padding:20px 0;">Formulario no disponible</p>';
+```
+
 }
 }
 
@@ -884,7 +953,7 @@ let savedId;
 if(EID){data.id=EID;await GP(‘invoices’,data);savedId=EID;}else{savedId=await GAD(‘invoices’,data);}
 await logAct(‘📄’,`Factura ${EID?'actualizada':'creada'}: ${data.number}`,`${cl} · $${fmtN(amt)}`,’#4cc98a’);
 await renderFin();if(CS===‘home’)renderHome();
-localStorage.removeItem(‘abg_last_insight_key’); // refresh insight after financial change
+_safeLS(‘del’,‘abg_last_insight_key’);
 // Show success with print button
 const realId=savedId||data.id;
 document.getElementById(‘m-ttl’).textContent=‘✅ Factura Guardada’;
@@ -1035,8 +1104,10 @@ openModal(‘confirm’);document.getElementById(‘m-ttl’).textContent=‘⚠
 document.getElementById(‘m-body’).innerHTML=’<p style="font-size:13px;font-weight:600;color:var(--tl);line-height:1.6;margin-bottom:18px;">¿Seguro que quieres borrar TODOS los datos? Esta acción no se puede deshacer.</p><button class="bp" onclick="clearAll()" style="background:linear-gradient(135deg,#c03030,#e05050);">🗑 Sí, borrar todo</button><button class="bd" onclick="closeM()">Cancelar</button>’;
 }
 async function clearAll(){
-[‘tasks’,‘clients’,‘events’,‘invoices’,‘expenses’,‘notes’,‘activity’,‘profile’].forEach(s=>localStorage.removeItem(LS+s));
-localStorage.removeItem(‘abg_last_insight’);localStorage.removeItem(‘abg_last_insight_key’);
+[‘tasks’,‘clients’,‘events’,‘invoices’,‘expenses’,‘notes’,‘activity’,‘profile’].forEach(s=>{
+if(_useMem)delete _mem[LS+s];else try{localStorage.removeItem(LS+s);}catch(e){}
+});
+try{localStorage.removeItem(‘abg_last_insight’);localStorage.removeItem(‘abg_last_insight_key’);}catch(e){}
 closeM();showToast(‘Datos borrados. Recargando…’);setTimeout(()=>location.reload(),2000);
 }
 
@@ -1173,7 +1244,7 @@ showToast(‘Datos exportados ✓’,‘✅’);
 }
 
 async function refreshInsight(){
-localStorage.removeItem(‘abg_last_insight_key’); // force refresh
+_safeLS(‘del’,‘abg_last_insight_key’);
 const[tasks,clients,invoices,expenses]=await Promise.all([GA(‘tasks’),GA(‘clients’),GA(‘invoices’),GA(‘expenses’)]);
 const done=tasks.filter(t=>t.status===‘done’).length,total=tasks.length,pct=total>0?Math.round(done/total*100):0;
 const rev=invoices.filter(i=>i.status===‘paid’).reduce((a,i)=>a+i.amount,0);
@@ -1199,8 +1270,8 @@ document.addEventListener(‘DOMContentLoaded’,bootApp);
 }else{
 bootApp();
 }
+
 </script>
 
-</div>
 </body>
 </html>
