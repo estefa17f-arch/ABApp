@@ -2126,3 +2126,7 @@ waitFB(async function(){
     setupListeners();renderHome();checkNav();
   }catch(err){setSyncStatus('offline','Error: '+err.message);}
 });
+</script>
+
+</body>
+</html>
