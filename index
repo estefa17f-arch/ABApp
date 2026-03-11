@@ -802,3 +802,512 @@ body {
   .pd-sp     { padding-bottom:40px; }
 }
 </style>
+<!-- ═══════════════════════════════════
+     CUERPO DE LA APP  (va dentro de <body>)
+     ═══════════════════════════════════ -->
+<div id="app">
+  <div id="sync-bar"></div>
+  <div id="sync-badge" class="syncing">⏳ Conectando…</div>
+
+  <!-- ══════════ HOME ══════════ -->
+  <div class="scr on" id="s-home">
+    <div class="hdr">
+      <div class="logo">A<em style="font-style:italic;">&</em>B Group</div>
+      <div class="hbts">
+        <div style="position:relative;">
+          <button class="ibtn" id="notif-btn" onclick="toggleNotifPanel(event)">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+            <span class="ndot" id="notif-dot" style="display:none;"></span>
+          </button>
+        </div>
+        <div class="avbtn" onclick="nav('profile')" id="home-av">AB</div>
+      </div>
+    </div>
+    <div class="sp">
+      <div style="padding:0 20px 16px;">
+        <div style="font-size:20px;font-weight:800;" id="greet">Buenos días!</div>
+        <div style="font-size:11px;color:var(--tll);font-weight:600;margin-top:3px;" id="greet-d"></div>
+      </div>
+      <div class="ins">
+        <div class="ins-i"><svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg></div>
+        <div class="ins-b">
+          <div class="ins-t">Insight del Equipo</div>
+          <div class="ins-d" id="ai-ins">Cargando…</div>
+        </div>
+        <div class="ins-a">›</div>
+      </div>
+      <div class="prow" id="h-pills"></div>
+      <div class="seclb">Resumen Semanal</div>
+      <div class="g2" id="h-metrics"></div>
+      <div class="sep"></div>
+      <div class="seclb">Actividad Reciente</div>
+      <div id="h-tl"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ CALENDAR ══════════ -->
+  <div class="scr" id="s-calendar">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Calendario</div>
+        <div class="ssub" id="cal-sub"></div>
+      </div>
+      <div class="hbts">
+        <button class="hdr-fab" onclick="openModal('event')">+</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" onclick="setCalView('month',this)">Mes</button>
+      <button class="tab"    onclick="setCalView('week',this)">Semana</button>
+      <button class="tab"    onclick="setCalView('day',this)">Día</button>
+    </div>
+    <!-- cabecera fija del mes (número de día / nombre día) -->
+    <div class="cnav">
+      <button class="cnb" onclick="chMon(-1)">‹</button>
+      <span class="cml" id="cal-lbl"></span>
+      <button class="cnb" onclick="chMon(1)">›</button>
+    </div>
+    <div class="cdh">
+      <span>Do</span><span>Lu</span><span>Ma</span>
+      <span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span>
+    </div>
+    <div class="cgrid" id="cal-g"></div>
+
+    <!-- vista MES -->
+    <div id="cal-month-view" class="sp" style="padding-top:4px;">
+      <div class="seclb">Eventos del Día</div>
+      <div id="day-evs"></div>
+    </div>
+    <!-- vista SEMANA -->
+    <div id="cal-week-view" style="display:none;flex:1;overflow-y:scroll;
+         -webkit-overflow-scrolling:touch;padding:0 20px 100px;scrollbar-width:none;"></div>
+    <!-- vista DÍA -->
+    <div id="cal-day-view"  style="display:none;flex:1;overflow-y:scroll;
+         -webkit-overflow-scrolling:touch;padding:0 20px 100px;scrollbar-width:none;"></div>
+
+    <button class="fab" onclick="openModal('event')">+</button>
+  </div>
+
+  <!-- ══════════ TASKS ══════════ -->
+  <div class="scr" id="s-tasks">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Tareas</div>
+        <div class="ssub" id="t-sub">0 pendientes</div>
+      </div>
+      <div class="hbts">
+        <button class="ibtn" onclick="toggleKan()" title="Kanban">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+            <path d="M4 4h4v16H4zm6 0h4v10h-4zm6 0h4v7h-4z"/>
+          </svg>
+        </button>
+        <button class="hdr-fab" onclick="openModal('task')">+</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" onclick="fTask('all',this)">Todas</button>
+      <button class="tab"    onclick="fTask('pending',this)">Pendientes</button>
+      <button class="tab"    onclick="fTask('done',this)">Hechas</button>
+      <button class="tab"    onclick="fTask('high',this)">Urgentes</button>
+    </div>
+    <div class="sp">
+      <!-- métricas rápidas -->
+      <div class="g2" style="margin-bottom:12px;">
+        <div class="card mc blue-bg" style="padding:14px;">
+          <div class="ml">Esta Semana</div>
+          <div class="circ">
+            <svg viewBox="0 0 60 60">
+              <circle class="cbg" cx="30" cy="30" r="26"/>
+              <circle class="cfl" id="tc-fl" cx="30" cy="30" r="26" stroke="rgba(255,255,255,.7)"/>
+            </svg>
+            <div class="cpct" id="tc-pct" style="color:#fff;">0%</div>
+          </div>
+          <div class="ms" style="text-align:center;margin-top:5px;" id="tc-sub">0/0</div>
+        </div>
+        <div class="card" style="padding:14px;">
+          <div class="ml">Por Prioridad</div>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px;" id="t-prio-bk"></div>
+        </div>
+      </div>
+      <!-- lista / kanban -->
+      <div id="t-list"><div id="t-items"></div></div>
+      <div id="t-kan" style="display:none;"><div class="kw" id="k-cols"></div></div>
+    </div>
+    <button class="fab" onclick="openModal('task')">+</button>
+  </div>
+
+  <!-- ══════════ CLIENTS ══════════ -->
+  <div class="scr" id="s-clients">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Clientes</div>
+        <div class="ssub" id="c-sub"></div>
+      </div>
+      <div class="hbts">
+        <button class="hdr-fab" onclick="openModal('client')">+</button>
+      </div>
+    </div>
+    <div class="neu-in sbar">
+      <span style="color:var(--tll);display:flex;">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </span>
+      <input id="c-search" type="text" placeholder="Buscar clientes…" oninput="renderClients()"
+             style="border:none;background:transparent;font-family:'DM Sans',sans-serif;
+                    font-size:12px;font-weight:600;color:var(--tx);outline:none;flex:1;">
+    </div>
+    <div class="tabs">
+      <button class="tab on" onclick="fClient('all',this)">Todos</button>
+      <button class="tab"    onclick="fClient('active',this)">Activos</button>
+      <button class="tab"    onclick="fClient('lead',this)">Leads</button>
+      <button class="tab"    onclick="fClient('inactive',this)">Inactivos</button>
+    </div>
+    <div class="sp"><div id="c-list"></div></div>
+    <button class="fab" onclick="openModal('client')">+</button>
+  </div>
+
+  <!-- ══════════ FINANCE ══════════ -->
+  <div class="scr" id="s-finance">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Finanzas</div>
+        <div class="ssub">Resumen mensual</div>
+      </div>
+      <div class="hbts">
+        <button class="hdr-fab" onclick="openFinMenu()">+</button>
+      </div>
+    </div>
+    <div class="fsum" id="fin-sum"></div>
+    <div style="padding:0 20px;margin-bottom:10px;flex-shrink:0;">
+      <div class="card chc" id="fin-chart"></div>
+    </div>
+    <div class="tabs" style="flex-shrink:0;">
+      <button class="tab on" onclick="setFinTab('inv',this)">Facturas</button>
+      <button class="tab"    onclick="setFinTab('exp',this)">Gastos</button>
+      <button class="tab"    onclick="setFinTab('adj',this)">📎 Adjuntos</button>
+    </div>
+    <div class="sp" style="padding-top:0;">
+      <div class="seclb" id="fin-lb">Facturas</div>
+      <div id="fin-list"></div>
+    </div>
+    <button class="fab" onclick="openFinMenu()">+</button>
+  </div>
+
+  <!-- ══════════ NOTES ══════════ -->
+  <div class="scr" id="s-notes">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Notas</div>
+        <div class="ssub" id="n-sub">0 notas</div>
+      </div>
+      <div class="hbts">
+        <button class="hdr-fab" onclick="openModal('note')">+</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" onclick="fNote('all',this)">Todas</button>
+      <button class="tab"    onclick="fNote('note',this)">Notas</button>
+      <button class="tab"    onclick="fNote('project',this)">Proyecto</button>
+      <button class="tab"    onclick="fNote('checklist',this)">Listas</button>
+      <button class="tab"    onclick="fNote('pinned',this)">📌 Fijadas</button>
+    </div>
+    <div class="sp">
+      <div class="ngrid" id="n-grid" style="margin-bottom:16px;"></div>
+    </div>
+    <button class="fab" onclick="openModal('note')">+</button>
+  </div>
+
+  <!-- ══════════ PROJECTS ══════════ -->
+  <div class="scr" id="s-projects">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Proyectos</div>
+        <div class="ssub" id="proj-sub">Biblioteca de proyectos</div>
+      </div>
+      <div class="hbts">
+        <button class="hdr-fab" onclick="openModal('project')">+</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" onclick="fProj('all',this)">Todos</button>
+      <button class="tab"    onclick="fProj('active',this)">Activos</button>
+      <button class="tab"    onclick="fProj('done',this)">Finalizados</button>
+      <button class="tab"    onclick="fProj('paused',this)">Pausados</button>
+    </div>
+    <div class="sp">
+      <div class="proj-grid" id="proj-grid"></div>
+    </div>
+    <button class="fab" onclick="openModal('project')">+</button>
+
+    <!-- ── detalle proyecto (overlay) ── -->
+    <div class="proj-detail" id="proj-detail">
+      <div class="pd-hdr">
+        <button class="pd-back" onclick="closeProjDetail()">‹</button>
+        <div style="flex:1;min-width:0;">
+          <div class="pd-title" id="pd-title"></div>
+          <div style="font-size:10px;color:var(--tll);font-weight:600;" id="pd-cat"></div>
+        </div>
+        <button class="ibtn" style="font-size:9px;font-weight:800;width:auto;padding:0 12px;
+                border-radius:12px;font-family:'DM Sans',sans-serif;"
+                id="pd-stbtn" onclick="cycleProjStatus()"></button>
+        <button class="ibtn" onclick="openAddStep()" style="font-size:22px;">+</button>
+      </div>
+      <!-- barra de progreso -->
+      <div style="padding:0 20px 10px;flex-shrink:0;">
+        <div class="bw" style="height:8px;">
+          <div class="bf" id="pd-bar" style="background:var(--a1);"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px;">
+          <span style="font-size:10px;font-weight:700;color:var(--tl);" id="pd-slbl"></span>
+          <span style="font-size:10px;font-weight:700;color:var(--tl);" id="pd-plbl"></span>
+        </div>
+      </div>
+      <div class="pd-sp"><div class="vtl" id="vtl-cnt"></div></div>
+    </div>
+  </div>
+
+  <!-- ══════════ ARCHIVE ══════════ -->
+  <div class="scr" id="s-archive">
+    <div class="hdr">
+      <div>
+        <div class="stitle">Archivo</div>
+        <div class="ssub" id="arch-sub">Biblioteca de documentos</div>
+      </div>
+      <div class="hbts">
+        <button class="hdr-fab" onclick="openModal('folder')">+</button>
+      </div>
+    </div>
+    <div class="neu-in sbar">
+      <span style="color:var(--tll);display:flex;">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+          <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+      </span>
+      <input id="arch-q" type="text" placeholder="Buscar carpetas…" oninput="renderArchive()"
+             style="border:none;background:transparent;font-family:'DM Sans',sans-serif;
+                    font-size:12px;font-weight:600;color:var(--tx);outline:none;flex:1;">
+    </div>
+    <div class="sp">
+      <div class="arch-grid" id="arch-grid"></div>
+    </div>
+    <button class="fab" onclick="openModal('folder')">+</button>
+
+    <!-- ── detalle carpeta (overlay) ── -->
+    <div class="arch-detail" id="arch-detail">
+      <div class="pd-hdr">
+        <button class="pd-back" onclick="closeArchDetail()">‹</button>
+        <div style="flex:1;min-width:0;">
+          <div class="pd-title" id="ad-title"></div>
+          <div style="font-size:10px;color:var(--tll);font-weight:600;" id="ad-meta"></div>
+        </div>
+        <button class="ibtn" onclick="triggerArchUpload()" title="Subir archivo" style="font-size:18px;">↑</button>
+      </div>
+      <div style="flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;
+                  padding-bottom:calc(var(--nav-h) + 16px);scrollbar-width:none;" id="ad-sp">
+        <!-- zona drag-and-drop -->
+        <div class="upzone" id="arch-upzone"
+             onclick="triggerArchUpload()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleArchDrop(event)">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"
+               style="color:var(--a1);opacity:.6;">
+            <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+          </svg>
+          <div class="upzone-t">Subir archivos</div>
+          <div class="upzone-s">Imágenes, PDF, documentos · Máx 10MB</div>
+        </div>
+        <div class="file-grid" id="ad-files" style="padding-bottom:20px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ PROFILE ══════════ -->
+  <div class="scr" id="s-profile">
+    <div class="hdr"><div class="stitle">Perfil</div></div>
+    <div class="sp">
+      <div class="phdr">
+        <div class="pav" id="p-av">AB</div>
+        <div class="pnm" id="p-nm">Tu Nombre</div>
+        <div class="prl" id="p-rl">Tu Cargo · A&amp;B Group</div>
+      </div>
+      <div class="g2" style="margin-bottom:16px;" id="p-stats"></div>
+
+      <div class="seclb">CUENTA</div>
+      <div class="sitem" onclick="openProfileEdit()">
+        <div class="sico mint-bg">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+        </div>
+        <span class="slb">Editar Perfil</span><span class="sarr">›</span>
+      </div>
+      <div class="sitem">
+        <div class="sico blue-bg">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+          </svg>
+        </div>
+        <span class="slb">Notificaciones</span>
+        <div class="tgl on" onclick="this.classList.toggle('on')"><div class="tknob"></div></div>
+      </div>
+      <div class="sitem" onclick="openThemeModal()">
+        <div class="sico peach-bg">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+            <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5S18.33 12 17.5 12z"/>
+          </svg>
+        </div>
+        <span class="slb">Tema y Colores</span><span class="sarr">›</span>
+      </div>
+      <div class="sep"></div>
+      <div class="sitem" style="opacity:.65;" onclick="confirmClear()">
+        <div class="sico pink-bg">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </div>
+        <span class="slb" style="color:#c03030;">Borrar todos los datos</span><span class="sarr">›</span>
+      </div>
+
+      <!-- estado Firebase -->
+      <div style="margin:10px 20px;padding:13px 16px;border-radius:16px;
+                  background:var(--c-blue-bg);color:var(--c-blue-tx);
+                  display:flex;align-items:center;gap:10px;">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+          <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/>
+        </svg>
+        <div>
+          <div style="font-size:11px;font-weight:800;">Firebase Conectado</div>
+          <div style="font-size:10px;opacity:.75;" id="fb-status-detail">Sincronizando…</div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:18px 0 6px;font-size:10px;color:var(--tll);font-weight:700;">
+        A&amp;B Group v6.2 · Firebase Sync
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ BARRA DE NAVEGACIÓN ══════════ -->
+  <div class="bnav" id="sidebar">
+    <!-- botón toggle (solo desktop) -->
+    <button id="nav-toggle" onclick="toggleSidebar()" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+      </svg>
+    </button>
+    <div class="ninner">
+      <button class="nav-arr" id="nav-left"  onclick="scrollNav(-1)">‹</button>
+      <div class="nav-track" id="nav-track">
+        <div class="ni on" id="ni-home"     onclick="nav('home')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></span>
+          <span class="ni-l">Inicio</span>
+        </div>
+        <div class="ni" id="ni-calendar"  onclick="nav('calendar')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg></span>
+          <span class="ni-l">Agenda</span>
+        </div>
+        <div class="ni" id="ni-tasks"    onclick="nav('tasks')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>
+          <span class="ni-l">Tareas</span>
+        </div>
+        <div class="ni" id="ni-clients"  onclick="nav('clients')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
+          <span class="ni-l">Clientes</span>
+        </div>
+        <div class="ni" id="ni-finance"  onclick="nav('finance')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></span>
+          <span class="ni-l">Finanzas</span>
+        </div>
+        <div class="ni" id="ni-notes"    onclick="nav('notes')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M3 18h12v-2H3v2zm0-5h12v-2H3v2zm0-7v2h12V6H3zm14 9.59L19.59 17 17 14.41 14.41 17 16 18.59 17 20l1-1.41L19.59 20 21 18.59 18.41 16 21 13.41 19.59 12 17 14.59z"/></svg></span>
+          <span class="ni-l">Notas</span>
+        </div>
+        <div class="ni" id="ni-projects" onclick="nav('projects')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></span>
+          <span class="ni-l">Proyectos</span>
+        </div>
+        <div class="ni" id="ni-archive"  onclick="nav('archive')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.53 15.58.12 13.04.12c-1.37 0-2.61.58-3.49 1.5L9 2.23 8.45 1.63C7.57.71 6.33.12 4.96.12 2.42.12 0 2.53 0 5.04c0 .48.11.92.18 1.36H0C0 6 .9 7 2 7h.82C1.67 7.79 1 8.81 1 10v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V10c0-1.19-.67-2.21-1.82-3H22V6h-2z"/></svg></span>
+          <span class="ni-l">Archivo</span>
+        </div>
+        <div class="ni" id="ni-profile"  onclick="nav('profile')">
+          <span class="ni-i"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+          <span class="ni-l">Perfil</span>
+        </div>
+      </div>
+      <button class="nav-arr" id="nav-right" onclick="scrollNav(1)">›</button>
+    </div>
+  </div>
+
+  <!-- ══════════ MODAL ══════════ -->
+  <div id="mo" onclick="closeMO(event)">
+    <div id="mb">
+      <div class="mhdr">
+        <span class="mttl" id="m-ttl">Nuevo</span>
+        <button class="mcls" onclick="closeM()">×</button>
+      </div>
+      <div class="mbody" id="m-body"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ LIGHTBOX ══════════ -->
+  <div id="lightbox">
+    <div id="lb-bar">
+      <span id="lb-title">Documento</span>
+      <div id="lb-acts">
+        <button class="lb-btn lb-dl"    onclick="lbDownload()">⬇</button>
+        <button class="lb-btn lb-print" onclick="lbPrint()">🖨</button>
+        <button class="lb-btn lb-close" onclick="closeLB()">✕</button>
+      </div>
+    </div>
+    <div id="lb-body">
+      <img id="lb-img" alt="Adjunto">
+      <iframe id="lb-pdf" title="PDF"></iframe>
+      <div id="lb-nopreview">
+        <svg viewBox="0 0 24 24" fill="rgba(255,255,255,.4)" width="64" height="64">
+          <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+        </svg>
+        <div style="font-size:14px;font-weight:700;">Vista previa no disponible</div>
+        <div style="font-size:11px;opacity:.6;" id="lb-nopreview-name"></div>
+        <!-- FIX: botón siempre presente, se muestra/oculta por JS -->
+        <button id="lb-ext-btn" onclick="lbOpenExternal()"
+                style="display:none;margin-top:8px;padding:11px 22px;border-radius:14px;
+                       border:none;cursor:pointer;background:rgba(255,255,255,.18);
+                       color:#fff;font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;">
+          Abrir ↗
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ TOAST ══════════ -->
+  <div id="toast">
+    <div style="flex:1;font-size:12px;font-weight:800;" id="t-msg"></div>
+    <button id="tclose" onclick="hideToast()">✕</button>
+  </div>
+
+  <!-- ══════════ PANEL DE NOTIFICACIONES ══════════ -->
+  <div id="notif-panel">
+    <div style="padding:14px 16px 10px;border-bottom:1px solid rgba(160,185,210,.1);
+                display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;font-weight:800;">Notificaciones</span>
+      <button onclick="closeNotifPanel()"
+              style="background:none;border:none;font-size:16px;cursor:pointer;opacity:.4;">×</button>
+    </div>
+    <div id="notif-list"></div>
+  </div>
+
+  <!-- ══════════ INPUTS OCULTOS (archivos) ══════════ -->
+  <!-- FIX: multiple=false explícito para evitar selección múltiple accidental -->
+  <input type="file" id="adj-input"
+         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+         style="display:none;" onchange="handleAdjFile(event)">
+  <input type="file" id="step-file-input"
+         accept="image/*,.pdf,.doc,.docx"
+         style="display:none;" onchange="handleStepFile(event)">
+  <input type="file" id="arch-file-input"
+         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+         style="display:none;" onchange="handleArchFile(event)">
+
+</div><!-- /#app -->
