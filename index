@@ -1446,6 +1446,354 @@ function checkNav() {
 window.addEventListener('resize', checkNav);
 var _nt = document.getElementById('nav-track');
 if (_nt) _nt.addEventListener('scroll', updateNavArrows);
+// ╔═══════════════════════════════════════════════════════════╗
+// ║ FUNCIONES FALTANTES - IMPLEMENTACIÓN COMPLETA             ║
+// ╚═══════════════════════════════════════════════════════════╝
+
+// ── Renderizar HOME ────────────────────────────────────────
+async function renderHome() {
+  setSyncStatus('syncing', 'Cargando inicio…');
+  try {
+    // Saludar según hora
+    const h = new Date().getHours();
+    const greet = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
+    document.getElementById('greet').textContent = greet + '!';
+    document.getElementById('greet-d').textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    // Cargar tareas, eventos, finanzas
+    const [tasks, events, clients] = await Promise.all([
+      GA('tasks'), GA('events'), GA('clients')
+    ]);
+
+    // Pills de clientes activos
+    const activeCl = clients.filter(c => c.status !== 'inactive').slice(0, 5);
+    const pillsHtml = activeCl.map(c => 
+      `<div class="pill" style="background:${c.color || 'var(--a1)'}20;color:${c.color || 'var(--a1)'};"><span class="p-t">${c.name}</span></div>`
+    ).join('');
+    document.getElementById('h-pills').innerHTML = pillsHtml;
+
+    // Métricas
+    const doneTasks = tasks.filter(t => t.done).length;
+    const metricsHtml = `
+      <div class="card mc mint-bg"><div class="ml">TAREAS</div><div class="mv">${tasks.length}</div><div class="ms">${doneTasks} completadas</div></div>
+      <div class="card mc peach-bg"><div class="ml">CLIENTES</div><div class="mv">${clients.length}</div><div class="ms">Activos: ${clients.filter(c => c.status === 'active').length}</div></div>
+      <div class="card mc blue-bg"><div class="ml">EVENTOS</div><div class="mv">${events.length}</div><div class="ms">Esta semana</div></div>
+      <div class="card mc lav-bg"><div class="ml">CONVERSIÓN</div><div class="mv">${clients.length > 0 ? Math.round(clients.filter(c => c.status === 'active').length / clients.length * 100) : 0}%</div></div>
+    `;
+    document.getElementById('h-metrics').innerHTML = metricsHtml;
+
+    // Timeline reciente
+    const activity = await GA('activity');
+    const tlHtml = activity.slice(-5).reverse().map(a => `
+      <div class="tli">
+        <div class="tdc"><div class="td" style="background:${a.color || 'var(--a3)'}"></div><div class="tln"></div></div>
+        <div class="tbd">
+          <div class="tlc card">
+            <div class="tlt">${a.icon} ${a.title}</div>
+            <div class="tld">${a.desc}</div>
+            <div class="tlm">${ago(a.time)}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('h-tl').innerHTML = tlHtml;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderHome error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar CALENDAR ────────────────────────────────────
+async function renderCal() {
+  setSyncStatus('syncing', 'Cargando calendario…');
+  try {
+    const events = await GA('events');
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    // Actualizar label mes/año
+    document.getElementById('cal-lbl').textContent = 
+      new Date(currentYear, currentMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+    // Generar grid de días
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    let html = '';
+    // Días del mes anterior
+    for (let i = firstDay - 1; i >= 0; i--) {
+      html += `<div class="cday oth">${daysInPrevMonth - i}</div>`;
+    }
+    // Días del mes actual
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const hasEvent = events.some(e => e.date === dateStr);
+      const isToday = d === today.getDate() && currentMonth === today.getMonth();
+      html += `<div class="cday ${isToday ? 'today' : ''} ${hasEvent ? 'hev' : ''}" onclick="selectDate('${dateStr}')">${d}</div>`;
+    }
+    // Días del próximo mes
+    const totalCells = html.match(/<div/g).length;
+    for (let d = 1; totalCells + d <= 42; d++) {
+      html += `<div class="cday oth">${d}</div>`;
+    }
+    document.getElementById('cal-g').innerHTML = html;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderCal error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar TASKS ───────────────────────────────────────
+async function renderTasks() {
+  setSyncStatus('syncing', 'Cargando tareas…');
+  try {
+    const tasks = await GA('tasks');
+    const pending = tasks.filter(t => !t.done);
+    
+    document.getElementById('t-sub').textContent = `${pending.length} pendientes`;
+
+    // Progreso semanal
+    const doneThisWeek = tasks.filter(t => t.done && Date.now() - (t.completedAt || 0) < 604800000).length;
+    const allThisWeek = tasks.filter(t => Date.now() - (t.createdAt || 0) < 604800000).length;
+    const percent = allThisWeek > 0 ? Math.round(doneThisWeek / allThisWeek * 100) : 0;
+    document.getElementById('tc-pct').textContent = percent + '%';
+    document.getElementById('tc-sub').textContent = `${doneThisWeek}/${allThisWeek}`;
+    document.getElementById('tc-fl').style.strokeDashoffset = (158 * (100 - percent)) / 100;
+
+    // Por prioridad
+    const priorities = { high: 0, medium: 0, low: 0 };
+    tasks.forEach(t => priorities[t.priority || 'medium']++);
+    const prioHtml = `
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:#ff4444;"></div><span style="font-size:11px;">Alta: ${priorities.high}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:#ffaa00;"></div><span style="font-size:11px;">Media: ${priorities.medium}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:7px;height:7px;border-radius:50%;background:#44bb44;"></div><span style="font-size:11px;">Baja: ${priorities.low}</span></div>
+    `;
+    document.getElementById('t-prio-bk').innerHTML = prioHtml;
+
+    // Lista de tareas
+    const itemsHtml = tasks.map(t => `
+      <div class="ti" onclick="openModal('task', ${JSON.stringify(t).replace(/"/g, '&quot;')})">
+        <div class="tck ${t.done ? 'done' : ''}" style="border-color:${t.color || 'var(--a1)'};">${t.done ? '✓' : ''}</div>
+        <div class="tinf">
+          <div class="tttl ${t.done ? 'done' : ''}">${esc(t.title)}</div>
+          <div class="tmeta">
+            ${t.category ? `<span class="ttag" style="background:${getCategoryColor(t.category)}20;color:${getCategoryColor(t.category)};">${t.category}</span>` : ''}
+            ${t.dueDate ? `<span class="tdue">📅 ${fmtD(t.dueDate)}</span>` : ''}
+          </div>
+        </div>
+        <button class="tdel" onclick="delTask(event, '${t.id}')">🗑</button>
+      </div>
+    `).join('');
+    document.getElementById('t-items').innerHTML = itemsHtml;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderTasks error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar CLIENTS ─────────────────────────────────────
+async function renderClients() {
+  setSyncStatus('syncing', 'Cargando clientes…');
+  try {
+    const clients = await GA('clients');
+    const q = (document.getElementById('c-search').value || '').toLowerCase();
+    const filtered = clients.filter(c => c.name.toLowerCase().includes(q));
+
+    document.getElementById('c-sub').textContent = `${clients.length} clientes`;
+
+    const itemsHtml = filtered.map(c => {
+      const initials = c.name.split(' ').map(w => w[0]).join('').toUpperCase();
+      return `
+        <div class="citem" onclick="openClientDetail('${c.id}')">
+          <div class="cav" style="background:linear-gradient(135deg,${c.color || 'var(--a1)'},${c.color2 || 'var(--a2)'});">${initials}</div>
+          <div style="flex:1;">
+            <div class="cn">${esc(c.name)}</div>
+            <div class="cc">${esc(c.phone || 'Sin contacto')}</div>
+          </div>
+          <span class="cst ${c.status === 'active' ? 'sa' : c.status === 'lead' ? 'sl2' : 'si'}">${c.status}</span>
+          <button class="cdel" onclick="delClient(event, '${c.id}')">🗑</button>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('c-list').innerHTML = itemsHtml;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderClients error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar FINANCE ─────────────────────────────────────
+async function renderFin() {
+  setSyncStatus('syncing', 'Cargando finanzas…');
+  try {
+    const invoices = await GA('invoices');
+    const expenses = await GA('expenses');
+
+    const sumInv = invoices.reduce((s, i) => s + (i.total || 0), 0);
+    const sumExp = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const sumCards = invoices.filter(i => i.paid).reduce((s, i) => s + (i.total || 0), 0);
+
+    const cardsHtml = `
+      <div class="card fcard blue-bg"><div class="fl">INGRESOS</div><div class="fv">$${fmtM(sumInv)}</div></div>
+      <div class="card fcard peach-bg"><div class="fl">GASTOS</div><div class="fv">$${fmtM(sumExp)}</div></div>
+      <div class="card fcard mint-bg"><div class="fl">GANANCIA</div><div class="fv">$${fmtM(sumInv - sumExp)}</div></div>
+    `;
+    document.getElementById('fin-sum').innerHTML = cardsHtml;
+
+    // Chart simple
+    const chartHtml = `<div style="text-align:center;padding:20px;">
+      <div style="font-size:24px;font-weight:800;color:var(--a1);">$${fmtM(sumInv - sumExp)}</div>
+      <div style="font-size:11px;color:var(--tll);margin-top:3px;">Balance neto del mes</div>
+    </div>`;
+    document.getElementById('fin-chart').innerHTML = chartHtml;
+
+    // Lista
+    const itemsHtml = invoices.map(i => `
+      <div class="iitem">
+        <div class="iico" style="background:var(--c-blue-bg);color:var(--c-blue-tx);">📄</div>
+        <div class="iin">
+          <div class="inm">Factura #${i.number}</div>
+          <div class="idt">${i.client}</div>
+        </div>
+        <div class="irt">
+          <div class="iamt">$${fmtM(i.total)}</div>
+          <span class="ist ${i.paid ? 'spaid' : 'spend'}">${i.paid ? 'Pagada' : 'Pendiente'}</span>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('fin-list').innerHTML = itemsHtml;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderFin error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar NOTES ───────────────────────────────────────
+async function renderNotes() {
+  setSyncStatus('syncing', 'Cargando notas…');
+  try {
+    const notes = await GA('notes');
+    document.getElementById('n-sub').textContent = `${notes.length} notas`;
+
+    const notesHtml = notes.map(n => {
+      const colors = ['mint-bg', 'blue-bg', 'peach-bg', 'lav-bg', 'yel-bg', 'pink-bg'];
+      const colorIdx = (n.id || '').charCodeAt(0) % colors.length;
+      return `
+        <button class="ncard ${colors[colorIdx]}" onclick="openNoteDetail('${n.id}')">
+          ${n.pinned ? '<div class="npin">📌</div>' : ''}
+          <div class="ntt">${esc(n.title || 'Sin título')}</div>
+          <div class="npv">${esc((n.content || '').substring(0, 60))}</div>
+          <div class="ndt">${formatNoteDate(n._ts)}</div>
+          <button class="ndel" onclick="delNote(event, '${n.id}')">🗑</button>
+        </button>
+      `;
+    }).join('');
+    document.getElementById('n-grid').innerHTML = notesHtml;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderNotes error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar PROJECTS ────────────────────────────────────
+async function renderProjects() {
+  setSyncStatus('syncing', 'Cargando proyectos…');
+  try {
+    const projects = await GA('projects');
+    const html = projects.map(p => `
+      <div class="proj-book" onclick="openProjDetail('${p.id}')" style="background:linear-gradient(135deg,${p.spineColor || 'var(--a1)'},${p.spineCo​lor2 || 'var(--a2)'});">
+        <div class="pb-spine" style="background:linear-gradient(90deg,${p.spineColor || 'var(--a1)'},${p.spinColor2 || 'var(--a2)'});"></div>
+        <div class="pb-body">
+          <div class="pb-icon">${p.icon || '����'}</div>
+          <div class="pb-name">${esc(p.name)}</div>
+          <div class="pb-cat">${p.category || 'General'}</div>
+          <div class="pb-prog">
+            <div class="pb-pct">${p.progress || 0}% completado</div>
+            <div class="pb-bar"><div class="pb-fill" style="width:${p.progress || 0}%;background:linear-gradient(90deg,var(--a1),var(--a3));"></div></div>
+            <div class="pb-steps">${p.steps || 0} pasos</div>
+          </div>
+        </div>
+        <button class="pb-del" onclick="delProject(event, '${p.id}')">✕</button>
+      </div>
+    `).join('');
+    document.getElementById('proj-grid').innerHTML = html;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderProjects error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar ARCHIVE ─────────────────────────────────────
+async function renderArchive() {
+  setSyncStatus('syncing', 'Cargando archivo…');
+  try {
+    const folders = await GA('folders');
+    const q = (document.getElementById('arch-q').value || '').toLowerCase();
+    const filtered = folders.filter(f => f.name.toLowerCase().includes(q));
+
+    const html = filtered.map(f => {
+      const bg = ['mint-bg', 'blue-bg', 'peach-bg', 'lav-bg', 'yel-bg', 'pink-bg'];
+      const idx = (f.id || '').charCodeAt(0) % bg.length;
+      return `
+        <div class="arch-folder ${bg[idx]}" onclick="openArchDetail('${f.id}')">
+          <div class="af-top"></div>
+          <div class="af-body">
+            <div class="af-icon">${f.icon || '📁'}</div>
+            <div class="af-name">${esc(f.name)}</div>
+            <div class="af-meta">${f.fileCount || 0} archivos</div>
+          </div>
+          <button class="af-del" onclick="delFolder(event, '${f.id}')">✕</button>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('arch-grid').innerHTML = html;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderArchive error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Renderizar PROFILE ─────────────────────────────────────
+async function renderProfile() {
+  setSyncStatus('syncing', 'Cargando perfil…');
+  try {
+    const user = await GO('users', 'current') || { name: 'Tu Nombre', role: 'Admin' };
+    document.getElementById('p-nm').textContent = user.name || 'Tu Nombre';
+    document.getElementById('p-rl').textContent = (user.role || 'Usuario') + ' · A&B Group';
+
+    const initials = user.name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+    document.getElementById('p-av').textContent = initials;
+
+    setSyncStatus('online');
+  } catch (e) {
+    console.error('renderProfile error:', e);
+    setSyncStatus('offline');
+  }
+}
+
+// ── Utilidades helper ──────────────────────────────────────
+function getCategoryColor(cat) {
+  const colors = { 'Trabajo': '#3a8fc9', 'Personal': '#4cc98a', 'Importante': '#e8834a', 'Otros': '#a0aec0' };
+  return colors[cat] || '#a0aec0';
+}
 
 // ── Toast ─────────────────────────────────────────────────
 var _TT;
