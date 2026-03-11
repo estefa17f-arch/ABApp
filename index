@@ -3446,3 +3446,7 @@ waitFB(async function () {
     console.error('Firebase boot error:', err);
   }
 });
+</script>
+
+</body>
+</html>
